@@ -11,37 +11,37 @@ export ORDERER_CA=${PWD}/organizations/ordererOrganizations/example.com/orderers
 # IF you are using a CA, Register the new orderer and create orderer MSP and TLS certificates
 
 function registerOrderer() {
-  export FABRIC_CA_CLIENT_HOME=${PWD}/organizations/ordererOrganizations/example.com
+  export FABRIC_CA_CLIENT_HOME=${PWD}/organizations/peerOrganizations/org1.example.com
 
-  fabric-ca-client register --caname ca-orderer --id.name orderer2 --id.secret orderer2pw --id.type orderer --tls.certfiles ${PWD}/organizations/fabric-ca/ordererOrg/tls-cert.pem
+  fabric-ca-client register --caname ca-org1 --id.name orderer --id.secret ordererpw --id.type orderer --tls.certfiles ${PWD}/organizations/fabric-ca/org1/tls-cert.pem
 
-  fabric-ca-client enroll -u https://orderer2:orderer2pw@localhost:9054 --caname ca-orderer -M ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/msp --csr.hosts orderer2.example.com --tls.certfiles ${PWD}/organizations/fabric-ca/ordererOrg/tls-cert.pem
+  fabric-ca-client enroll -u https://orderer:ordererpw@localhost:7054 --caname ca-org1 -M ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/msp --csr.hosts orderer.org1.example.com --tls.certfiles ${PWD}/organizations/fabric-ca/org1/tls-cert.pem
 
-  fabric-ca-client enroll -u https://orderer2:orderer2pw@localhost:9054 --caname ca-orderer -M ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tls --enrollment.profile tls --csr.hosts orderer2.example.com --csr.hosts localhost --tls.certfiles ${PWD}/organizations/fabric-ca/ordererOrg/tls-cert.pem
+  fabric-ca-client enroll -u https://orderer:ordererpw@localhost:7054 --caname ca-org1 -M ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/tls --enrollment.profile tls --csr.hosts orderer.org1.example.com --csr.hosts localhost --tls.certfiles ${PWD}/organizations/fabric-ca/org1/tls-cert.pem
 
   echo 'NodeOUs:
     Enable: true
     ClientOUIdentifier:
-      Certificate: cacerts/localhost-9054-ca-orderer.pem
+      Certificate: cacerts/localhost-7054-ca-org1.pem
       OrganizationalUnitIdentifier: client
     PeerOUIdentifier:
-      Certificate: cacerts/localhost-9054-ca-orderer.pem
+      Certificate: cacerts/localhost-7054-ca-org1.pem
       OrganizationalUnitIdentifier: peer
     AdminOUIdentifier:
-      Certificate: cacerts/localhost-9054-ca-orderer.pem
+      Certificate: cacerts/localhost-7054-ca-org1.pem
       OrganizationalUnitIdentifier: admin
     OrdererOUIdentifier:
-      Certificate: cacerts/localhost-9054-ca-orderer.pem
-      OrganizationalUnitIdentifier: orderer' > ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/msp/config.yaml
+      Certificate: cacerts/localhost-7054-ca-org1.pem
+      OrganizationalUnitIdentifier: orderer' > ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/msp/config.yaml
 
     # Move certs around to make them easier to mount and point to with env variables
 
-  cp ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/tlscacerts/* ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/ca.crt
-  cp ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/signcerts/* ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/server.crt
-  cp ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/keystore/* ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/server.key
+  cp ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/tls/tlscacerts/* ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/tls/ca.crt
+  cp ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/tls/signcerts/* ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/tls/server.crt
+  cp ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/tls/keystore/* ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/tls/server.key
 
-  mkdir ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/msp/tlscacerts
-  cp ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/tlscacerts/* ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+  mkdir ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/msp/tlscacerts
+  cp ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/msp/tlscacerts/* ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
 }
   # Pull the system channel config and decode it
@@ -49,7 +49,13 @@ function registerOrderer() {
 function updateConfig() {
 
   export FLAG=$(if [ "$(uname -s)" == "Linux" ]; then echo "-w 0"; else echo "-b 0"; fi)
-  export TLS_CERT=$(cat ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/server.crt | base64 $FLAG)
+  export TLS_CERT=$(cat ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/tls/server.crt | base64 $FLAG)
+
+  export CA_CERT=$(cat ${PWD}/organizations/peerOrganizations/org1.example.com/msp/cacerts/localhost-7054-ca-org1.pem | base64 $FLAG)
+
+  export TLS_ROOT_CERT=$(cat ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/tls/tlscacerts/tls-localhost-7054-ca-org1.pem | base64 $FLAG)
+
+  MSPID="Org1MSP"
 
   mkdir config
 
@@ -73,13 +79,18 @@ function updateConfig() {
   '$CONSENTER_LIST',
     {
       "client_tls_cert": "'"$TLS_CERT"'",
-      "host": "orderer2.example.com",
-      "port": 8050,
+      "host": "orderer.org1.example.com",
+      "port": 6050,
       "server_tls_cert": "'"$TLS_CERT"'"
     }
   ]' > new_consenter.json
 
+
   jq -s '.[0] * {"channel_group":{"groups":{"Orderer":{"values":{"ConsensusType":{"value":{"metadata":{consenters:.[1]}}}}}}}}' config.json new_consenter.json > second_config.json
+
+  set -x
+  cat second_config.json | jq .channel_group.groups.Orderer.values.ConsensusType.value.metadata.consenters
+  set +x
 
   ## Add new orderer address to the list in the confiuration
 
@@ -89,19 +100,35 @@ function updateConfig() {
 
   echo '[
     '$ORDERER_ADRESSES',
-    "orderer2.example.com:8050"
+    "orderer.org1.example.com:6050"
   ]' > new_addresses.json
 
-  jq -s '.[0] * {"channel_group":{"values":{"OrdererAddresses":{"value":{addresses:.[1]}}}}}' second_config.json new_addresses.json > modified_config.json
+  jq -s '.[0] * {"channel_group":{"values":{"OrdererAddresses":{"value":{addresses:.[1]}}}}}' second_config.json new_addresses.json > third_config.json
 
+
+  # Add new org to the orderers
+
+
+  ## Create new org definition
+
+  ./../createOrgDef.sh $MSPID $CA_CERT $TLS_ROOT_CERT
+
+  set -x
+  jq -s '.[0] * {"channel_group":{"groups":{"Orderer":{"groups": {"'"$MSPID"'":.[1]}}}}}' third_config.json Org1Def.json > modified_config.json
+  set +x
 
   ## Check the new config
+
   set -x
   cat modified_config.json | jq .channel_group.groups.Orderer.values.ConsensusType.value.metadata.consenters
   set +x
 
   set -x
   cat modified_config.json | jq .channel_group.values.OrdererAddresses.value.addresses
+  set +x
+
+  set -x
+  cat modified_config.json | jq .channel_group.groups.Orderer.groups.${MSPID}
   set +x
 
   # Create the coniguration update
@@ -132,7 +159,7 @@ function updateConfig() {
     cp config/new_config_block.pb system-genesis-block/config.block
 
     # create the orderer
-    docker-compose -f docker/docker-compose-test-orderer2.yaml up -d 2>&1
+    docker-compose -f docker/docker-compose-test-ordererOrg1.yaml up -d 2>&1
 
   fi
 
@@ -147,7 +174,8 @@ if [[ $# -ge 1 ]] ; then
       shift
   fi
   if [[ "$key" == "down" ]]; then
-      docker-compose -f docker/docker-compose-test-orderer2.yaml down --volumes --remove-orphans
+      docker-compose -f docker/docker-compose-test-ordererOrg1.yaml down --volumes --remove-orphans
+      ./ordererUpdate.sh down
       ./network.sh down
       shift
   fi
