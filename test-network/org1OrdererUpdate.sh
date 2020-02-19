@@ -51,7 +51,7 @@ function updateConfig() {
   export FLAG=$(if [ "$(uname -s)" == "Linux" ]; then echo "-w 0"; else echo "-b 0"; fi)
   export TLS_CERT=$(cat ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/tls/server.crt | base64 $FLAG)
 
-  export CA_CERT=$(cat ${PWD}/organizations/peerOrganizations/org1.example.com/msp/cacerts/localhost-7054-ca-org1.pem | base64 $FLAG)
+  export CA_ROOT_CERT=$(cat ${PWD}/organizations/peerOrganizations/org1.example.com/msp/cacerts/localhost-7054-ca-org1.pem | base64 $FLAG)
 
   export TLS_ROOT_CERT=$(cat ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/tls/tlscacerts/tls-localhost-7054-ca-org1.pem | base64 $FLAG)
 
@@ -111,7 +111,7 @@ function updateConfig() {
 
   ## Create new org definition
 
-  ./../createOrgDef.sh $MSPID $CA_CERT $TLS_ROOT_CERT
+  ./../createOrgDef.sh $MSPID $CA_ROOT_CERT $TLS_ROOT_CERT
 
   set -x
   jq -s '.[0] * {"channel_group":{"groups":{"Orderer":{"groups": {"'"$MSPID"'":.[1]}}}}}' third_config.json Org1Def.json > modified_config.json
