@@ -103,7 +103,7 @@ approveForMyOrg() {
     set +x
   else
     set -x
-    peer lifecycle chaincode approveformyorg -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA --channelID $CHANNEL_NAME --name fabcar --version ${VERSION} --init-required --package-id ${PACKAGE_ID} --sequence ${VERSION} >&log.txt
+    peer lifecycle chaincode approveformyorg -o localhost:8050 --ordererTLSHostnameOverride orderer2.example.com --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA --channelID $CHANNEL_NAME --name fabcar --version ${VERSION} --init-required --package-id ${PACKAGE_ID} --sequence ${VERSION} >&log.txt
     set +x
   fi
   cat log.txt
@@ -164,7 +164,7 @@ commitChaincodeDefinition() {
     set +x
   else
     set -x
-    peer lifecycle chaincode commit -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA --channelID $CHANNEL_NAME --name fabcar $PEER_CONN_PARMS --version ${VERSION} --sequence ${VERSION} --init-required >&log.txt
+    peer lifecycle chaincode commit -o localhost:8050 --ordererTLSHostnameOverride orderer2.example.com --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA --channelID $CHANNEL_NAME --name fabcar $PEER_CONN_PARMS --version ${VERSION} --sequence ${VERSION} --init-required >&log.txt
     res=$?
     set +x
   fi
@@ -222,7 +222,7 @@ chaincodeInvokeInit() {
     set +x
   else
     set -x
-    peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n fabcar $PEER_CONN_PARMS --isInit -c '{"function":"initLedger","Args":[]}' >&log.txt
+    peer chaincode invoke -o localhost:8050 --ordererTLSHostnameOverride orderer2.example.com --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n fabcar $PEER_CONN_PARMS --isInit -c '{"function":"initLedger","Args":[]}' >&log.txt
     res=$?
     set +x
   fi
@@ -247,7 +247,7 @@ chaincodeInvoke() {
     set +x
   else
     set -x
-    peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n fabcar $PEER_CONN_PARMS -c '{"function":"initLedger","Args":[]}' >&log.txt
+    peer chaincode invoke -o localhost:8050 --ordererTLSHostnameOverride orderer2.example.com --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n fabcar $PEER_CONN_PARMS -c '{"function":"initLedger","Args":[]}' >&log.txt
     res=$?
     set +x
 	fi
