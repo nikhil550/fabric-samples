@@ -19,6 +19,7 @@ services:
     environment:
       - FABRIC_LOGGING_SPEC=INFO
       - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
+      - ORDERER_GENERAL_LISTENPORT=6050
       - ORDERER_GENERAL_GENESISMETHOD=file
       - ORDERER_GENERAL_GENESISFILE=/var/hyperledger/orderer/orderer.genesis.block
       - ORDERER_GENERAL_BOOTSTRAPFILE=/var/hyperledger/orderer/config.block
@@ -39,8 +40,8 @@ services:
     volumes:
         - ../system-genesis-block/genesis.block:/var/hyperledger/orderer/orderer.genesis.block
         - ../system-genesis-block/config.block:/var/hyperledger/orderer/config.block
-        - ../organizations/peerOrganizations/org1.example.com/peers/orderer.org1.example.com/msp:/var/hyperledger/orderer/msp
-        - ../organizations/peerOrganizations/org1.example.com/peers/orderer.org1.example.com/tls/:/var/hyperledger/orderer/tls
+        - ../organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/msp:/var/hyperledger/orderer/msp
+        - ../organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/tls/:/var/hyperledger/orderer/tls
         - orderer.org1.example.com:/var/hyperledger/production/orderer
     ports:
       - 6050:6050

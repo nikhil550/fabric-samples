@@ -40,8 +40,8 @@ function registerOrderer() {
   cp ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/signcerts/* ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/server.crt
   cp ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/keystore/* ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/server.key
 
-  cp ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/tlscacerts/* ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tlsca/tlsca.example.com-cert.pem
-
+  mkdir ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/msp/tlscacerts
+  cp ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/tls/tlscacerts/* ${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer2.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
 }
   # Pull the system channel config and decode it
@@ -79,12 +79,7 @@ function updateConfig() {
     }
   ]' > new_consenter.json
 
-
   jq -s '.[0] * {"channel_group":{"groups":{"Orderer":{"values":{"ConsensusType":{"value":{"metadata":{consenters:.[1]}}}}}}}}' config.json new_consenter.json > second_config.json
-
-  set -x
-  cat second_config.json | jq .channel_group.groups.Orderer.values.ConsensusType.value.metadata.consenters
-  set +x
 
   ## Add new orderer address to the list in the confiuration
 
@@ -101,13 +96,12 @@ function updateConfig() {
 
 
   ## Check the new config
-
   set -x
-  cat modified_config.json | jq .channel_group.values.OrdererAddresses.value.addresses
+  cat modified_config.json | jq .channel_group.groups.Orderer.values.ConsensusType.value.metadata.consenters
   set +x
 
   set -x
-  cat modified_config.json | jq .channel_group.groups.Orderer.values.ConsensusType.value.metadata.consenters
+  cat modified_config.json | jq .channel_group.values.OrdererAddresses.value.addresses
   set +x
 
   # Create the coniguration update
@@ -148,7 +142,7 @@ function updateConfig() {
 
 if [[ $# -ge 1 ]] ; then
   key="$1"
-  if [[ "$key" == "-ca" ]]; then
+  if [[ "$key" == "register" ]]; then
       registerOrderer
       shift
   fi

@@ -20,6 +20,3 @@ OrdererOrgs:
       - Hostname: orderer
         SANS:
         - localhost
-      - Hostname: orderer2
-        SANS:
-        - localhost
