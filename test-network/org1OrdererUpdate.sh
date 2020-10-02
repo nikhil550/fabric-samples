@@ -41,7 +41,7 @@ function registerOrderer() {
   cp ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/tls/keystore/* ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/tls/server.key
 
   mkdir ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/msp/tlscacerts
-  cp ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/msp/tlscacerts/* ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
+  cp ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/tls/tlscacerts/* ${PWD}/organizations/peerOrganizations/org1.example.com/orderers/orderer.org1.example.com/msp/tlscacerts/tlsca.example.com-cert.pem
 
 }
   # Pull the system channel config and decode it

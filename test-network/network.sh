@@ -310,20 +310,9 @@ function createChannel() {
 
 }
 
-<<<<<<< HEAD
 
 ## Call the script to deploy a chaincode to the channel
 function deployCC() {
-=======
-## Call the script to isntall and instantiate a chaincode on the channel
-function deployCC() {
-
-  scripts/deployCC.sh $CHANNEL_NAME $CC_RUNTIME_LANGUAGE $VERSION $CLI_DELAY $MAX_RETRY $VERBOSE
-
-#  scripts/deployCCorderer2.sh $CHANNEL_NAME $CC_RUNTIME_LANGUAGE $VERSION $CLI_DELAY $MAX_RETRY $VERBOSE
-
-#  scripts/deployCCorg1.sh $CHANNEL_NAME $CC_RUNTIME_LANGUAGE $VERSION $CLI_DELAY $MAX_RETRY $VERBOSE
->>>>>>> ae8bd49... update readme
 
   scripts/deployCC.sh $CHANNEL_NAME $CC_NAME $CC_SRC_PATH $CC_SRC_LANGUAGE $CC_VERSION $CC_SEQUENCE $CC_INIT_FCN $CC_END_POLICY $CC_COLL_CONFIG $CLI_DELAY $MAX_RETRY $VERBOSE
 

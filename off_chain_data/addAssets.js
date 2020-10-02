@@ -60,7 +60,7 @@ async function main() {
             numberAssetsToAdd = addAssetsConfig.numberAssetsToAdd;
         } else {
             nextAssetNumber = 100;
-            numberAssetsToAdd = 20;
+            numberAssetsToAdd = 100;
             // create a default config and save
             addAssetsConfig = new Object;
             addAssetsConfig.nextAssetNumber = nextAssetNumber;

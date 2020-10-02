@@ -1,10 +1,6 @@
 # Adding ordering nodes
 
-<<<<<<< HEAD
-You can use the `./network.sh` script to stand up a simple Fabric test network. The test network has two peer organizations with one peer each and a single node raft ordering service. You can also use the `./network.sh` script to create channels and deploy chaincode. For more information, see [Using the Fabric test network](https://hyperledger-fabric.readthedocs.io/en/latest/test_network.html). The test network is being introduced in Fabric v2.0 as the long term replacement for the `first-network` sample.
-=======
 This repo contains two scripts that add an ordering node for to your ordering service.
->>>>>>> ae8bd49... update readme
 
 `ordererUpdate.sh` adds a second ordering node that belongs to the ordering organization.
 
@@ -17,7 +13,7 @@ To use the script you need to create a network using the CAs:
 
 Then create an application channel:
 ```
-./network createChannel
+./network.sh createChannel
 ```
 
 Then use the script to register the second ordering node and add the script to the
