@@ -8,7 +8,11 @@
 
 const { Gateway, Wallets } = require('fabric-network');
 const path = require('path');
+<<<<<<< HEAD:auction/application-javascript/bid.js
 const { buildCCPOrg1, buildCCPOrg2, buildWallet, prettyJSONString} = require('../../test-application/javascript/AppUtil.js');
+=======
+const { buildCCPOrg1, buildCCPOrg2, buildWallet } = require('../../../test-application/javascript/AppUtil.js');
+>>>>>>> d4ff0a5... Add dutch auction sample:auction/simple-blind-auction/application-javascript/bid.js
 
 const myChannel = 'mychannel';
 const myChaincodeName = 'auction';

@@ -1,6 +1,6 @@
-## Auction sample
+## Simple blind auction
 
-The auction sample provides a set of smart contracts and tutorials that implement a series of distributed auctions. Each example uses important Fabric features such as private data, access control, and state-based endorsement.
+The simple blind auction sample uses Hyperledger Fabric to run an auction where bids are kept private until the auction period is over. Instead of displaying the full bid on the public ledger, buyers can only see hashes of other bids while bidding is underway. This prevents buyers from changing their bids in response to bids submitted by others. After the bidding period ends, participants reveal their bid to try to win the auction. The organizations participating in the auction verify that a revealed bid matches the hash on the public ledger. Whichever has the highest bid wins.
 
 A user that wants to sell one item can use the smart contract to create an auction. The auction is stored on the channel ledger and can be read by all channel members. The auctions created by the smart contract are run in three steps:
 1. Each auction is created with the status **open**. While the auction is open, buyers can add new bids to the auction. The full bids of each buyer are stored in the implicit private data collections of their organization. After the bid is created, the bidder can submit the hash of the bid to the auction. A bid is added to the auction in two steps because the transaction that creates the bid only needs to be endorsed by a peer of the bidders organization, while a transaction that updates the auction may need to be endorsed by multiple organizations. When the bid is added to the auction, the bidder's organization is added to the list of organizations that need to endorse any updates to the auction.
@@ -29,14 +29,14 @@ Note that we use the `-ca` flag to deploy the network using certificate authorit
 
 Run the following command to deploy the auction smart contract. We will override the default endorsement policy to allow any channel member to create an auction without requiring an endorsement from another organization.
 ```
-./network.sh deployCC -ccn auction -ccp ../auction/chaincode-go/ -ccl go -ccep "OR('Org1MSP.peer','Org2MSP.peer')"
+./network.sh deployCC -ccn auction -ccp ../auction/simple-blind-auction/chaincode-go/ -ccep "OR('Org1MSP.peer','Org2MSP.peer')"
 ```
 
 ## Install the application dependencies
 
 We will interact with the auction smart contract through a set of Node.js applications. Change into the `application-javascript` directory:
 ```
-cd fabric-samples/auction/application-javascript
+cd fabric-samples/auction/simple-blind-auction/application-javascript
 ```
 
 From this directory, run the following command to download the application dependencies:
@@ -82,7 +82,7 @@ After the transaction is complete, the `createAuction.js` application will query
 *** Result: Auction: {
   "objectType": "auction",
   "item": "painting",
-  "seller": "x509::CN=seller,OU=client+OU=org1+OU=department1::CN=ca.org1.example.com,O=org1.example.com,L=Durham,ST=North Carolina,C=US",
+  "seller": "eDUwOTo6Q049c2VsbGVyLE9VPWNsaWVudCtPVT1vcmcxK09VPWRlcGFydG1lbnQxOjpDTj1jYS5vcmcxLmV4YW1wbGUuY29tLE89b3JnMS5leGFtcGxlLmNvbSxMPUR1cmhhbSxTVD1Ob3J0aCBDYXJvbGluYSxDPVVT",
   "organizations": [
     "Org1MSP"
   ],
@@ -93,7 +93,16 @@ After the transaction is complete, the `createAuction.js` application will query
   "status": "open"
 }
 ```
-The smart contract uses the `GetClientIdentity().GetID()` API to read the identity that creates the auction and defines that identity as the auction `"seller"`. The seller is identified by the name and issuer of the seller's certificate.
+The smart contract uses the `GetClientIdentity().GetID()` API to read identity that creates the auction and defines that identity as the auction `"seller"`. You can see the seller information by decoding the `"seller"` string out of base64 format:
+
+```
+echo eDUwOTo6Q049c2VsbGVyLE9VPWNsaWVudCtPVT1vcmcxK09VPWRlcGFydG1lbnQxOjpDTj1jYS5vcmcxLmV4YW1wbGUuY29tLE89b3JnMS5leGFtcGxlLmNvbSxMPUR1cmhhbSxTVD1Ob3J0aCBDYXJvbGluYSxDPVVT | base64 --decode
+```
+
+The result is the name and issuer of the seller's certificate:
+```
+x509::CN=org1admin,OU=admin,O=Hyperledger,ST=North Carolina,C=US::CN=ca.org1.example.com,O=org1.example.com,L=Durham,ST=North Carolina,C=USn
+```
 
 ## Bid on the auction
 
@@ -112,7 +121,7 @@ The application will query the bid after it is created:
   "objectType": "bid",
   "price": 800,
   "org": "Org1MSP",
-  "bidder": "x509::CN=bidder1,OU=client+OU=org1+OU=department1::CN=ca.org1.example.com,O=org1.example.com,L=Durham,ST=North Carolina,C=US"
+  "bidder": "eDUwOTo6Q049YmlkZGVyMSxPVT1jbGllbnQrT1U9b3JnMStPVT1kZXBhcnRtZW50MTo6Q049Y2Eub3JnMS5leGFtcGxlLmNvbSxPPW9yZzEuZXhhbXBsZS5jb20sTD1EdXJoYW0sU1Q9Tm9ydGggQ2Fyb2xpbmEsQz1VUw=="
 }
 ```
 
@@ -120,12 +129,12 @@ The bid is stored in the Org1 implicit data collection. The `"bidder"` parameter
 
 The `bid.js` application also prints the bidID:
 ```
-*** Result ***SAVE THIS VALUE*** BidID: 67d85ef08e32de20994c816362d0952fe5c2ae3f2d1083600c3ac61f65a89f60
+*** Result ***SAVE THIS VALUE*** BidID: 8ef83011a5fb791f75ed008337839426f6b87981519e5d58ef5ada39c3044edd
 ```
 
 The BidID acts as the unique identifier for the bid. This ID allows you to query the bid using the `queryBid.js` program and add the bid to the auction. Save the bidID returned by the application as an environment variable in your terminal:
 ```
-export BIDDER1_BID_ID=67d85ef08e32de20994c816362d0952fe5c2ae3f2d1083600c3ac61f65a89f60
+export BIDDER1_BID_ID=8ef83011a5fb791f75ed008337839426f6b87981519e5d58ef5ada39c3044edd
 ```
 This value will be different for each transaction, so you will need to use the value returned in your terminal.
 
@@ -139,14 +148,14 @@ The hash of bid will be added to the list private bids in that have been submitt
 *** Result: Auction: {
   "objectType": "auction",
   "item": "painting",
-  "seller": "x509::CN=seller,OU=client+OU=org1+OU=department1::CN=ca.org1.example.com,O=org1.example.com,L=Durham,ST=North Carolina,C=US",
+  "seller": "eDUwOTo6Q049c2VsbGVyLE9VPWNsaWVudCtPVT1vcmcxK09VPWRlcGFydG1lbnQxOjpDTj1jYS5vcmcxLmV4YW1wbGUuY29tLE89b3JnMS5leGFtcGxlLmNvbSxMPUR1cmhhbSxTVD1Ob3J0aCBDYXJvbGluYSxDPVVT",
   "organizations": [
     "Org1MSP"
   ],
   "privateBids": {
-    "\u0000bid\u0000PaintingAuction\u00005c049b0b4552d34c88e0f8fb5abca31fa04472b7e1336a16650ac8cfb0b16472\u0000": {
+    "\u0000bid\u0000PaintingAuction\u00008ef83011a5fb791f75ed008337839426f6b87981519e5d58ef5ada39c3044edd\u0000": {
       "org": "Org1MSP",
-      "hash": "0b8bbdb96b1d252e71ac1ed71df3580f7a0e31a743a4a09bbf5196dffef426b2"
+      "hash": "5cb50a17b5a21c02fc01306e3e9b54f4db67e9a440552ce898bbd7daa62dce0f"
     }
   },
   "revealedBids": {},
@@ -165,7 +174,7 @@ node bid.js org1 bidder2 PaintingAuction 500
 
 Save the Bid ID returned by the application:
 ```
-export BIDDER2_BID_ID=0fa8b3b15923966f205a1f5ebd163d2707d069ffa055105114fc654d225f511d
+export BIDDER2_BID_ID=915a908c8f2c368f4a3aedd73176656af81ddfab000b11629503403f3d97b185
 ```
 
 Submit bidder2's bid to the auction:
@@ -182,7 +191,7 @@ node bid.js org2 bidder3 PaintingAuction 700
 
 Save the Bid ID returned by the application:
 ```
-export BIDDER3_BID_ID=cda8bb2849fc0553efb036c56ea86d82791a695b5641941dac797dc6e2d75768
+export BIDDER3_BID_ID=5e4e637c68833b178739575f6fe09820b019551a8cfbb43a4d172e0aa864dfad
 ```
 
 Add bidder3's bid to the auction:
@@ -195,23 +204,23 @@ Because bidder3 belongs to Org2, submitting the bid will add Org2 to the list of
 *** Result: Auction: {
   "objectType": "auction",
   "item": "painting",
-  "seller": "x509::CN=seller,OU=client+OU=org1+OU=department1::CN=ca.org1.example.com,O=org1.example.com,L=Durham,ST=North Carolina,C=US",
+  "seller": "eDUwOTo6Q049c2VsbGVyLE9VPWNsaWVudCtPVT1vcmcxK09VPWRlcGFydG1lbnQxOjpDTj1jYS5vcmcxLmV4YW1wbGUuY29tLE89b3JnMS5leGFtcGxlLmNvbSxMPUR1cmhhbSxTVD1Ob3J0aCBDYXJvbGluYSxDPVVT",
   "organizations": [
     "Org1MSP",
     "Org2MSP"
   ],
   "privateBids": {
-    "\u0000bid\u0000PaintingAuction\u00001b9dc0006fef10413df5cca927cabdf73ab854fe92b7a7b2eebfa00961fdac67\u0000": {
-      "org": "Org1MSP",
-      "hash": "15cd9a3e12825017f3e758499ac6138ebbe1adec4c49cc6ea6a0973fc6514666"
-    },
-    "\u0000bid\u0000PaintingAuction\u00005c049b0b4552d34c88e0f8fb5abca31fa04472b7e1336a16650ac8cfb0b16472\u0000": {
-      "org": "Org1MSP",
-      "hash": "0b8bbdb96b1d252e71ac1ed71df3580f7a0e31a743a4a09bbf5196dffef426b2"
-    },
-    "\u0000bid\u0000PaintingAuction\u00005ee4fa53b54ea0821e57a6884a1ada5eb04f136ee222e92d7399bcdf47556ea1\u0000": {
+    "\u0000bid\u0000PaintingAuction\u00005e4e637c68833b178739575f6fe09820b019551a8cfbb43a4d172e0aa864dfad\u0000": {
       "org": "Org2MSP",
-      "hash": "14d47d17acceceb483e87c14a4349844874fce549d71c6a23457d953ed8ffbd3"
+      "hash": "40107eab7a99dfc2f25d02b8ab840f12fd802a9f86d8d42b78d7b4409b2c15bd"
+    },
+    "\u0000bid\u0000PaintingAuction\u00008ef83011a5fb791f75ed008337839426f6b87981519e5d58ef5ada39c3044edd\u0000": {
+      "org": "Org1MSP",
+      "hash": "5cb50a17b5a21c02fc01306e3e9b54f4db67e9a440552ce898bbd7daa62dce0f"
+    },
+    "\u0000bid\u0000PaintingAuction\u0000915a908c8f2c368f4a3aedd73176656af81ddfab000b11629503403f3d97b185\u0000": {
+      "org": "Org1MSP",
+      "hash": "a458df18b12dffe4ae6d56a270134c2d55bd53fface034bd24381d0073d46a45"
     }
   },
   "revealedBids": {},
@@ -232,7 +241,7 @@ node bid.js org2 bidder4 PaintingAuction 900
 
 Save the Bid ID returned by the application:
 ```
-export BIDDER4_BID_ID=83861eb17715ff537a1e73cd2d08509dc7199572806a5368706516759af1a257
+export BIDDER4_BID_ID=49466271ae879bd009e75a60730a12bfa986e75f263202ab81ccd3deec544a35
 ```
 
 Add bidder4's bid to the auction:
@@ -267,35 +276,35 @@ The full bid details, including the price, are now visible:
 *** Result: Auction: {
   "objectType": "auction",
   "item": "painting",
-  "seller": "x509::CN=seller,OU=client+OU=org1+OU=department1::CN=ca.org1.example.com,O=org1.example.com,L=Durham,ST=North Carolina,C=US",
+  "seller": "eDUwOTo6Q049c2VsbGVyLE9VPWNsaWVudCtPVT1vcmcxK09VPWRlcGFydG1lbnQxOjpDTj1jYS5vcmcxLmV4YW1wbGUuY29tLE89b3JnMS5leGFtcGxlLmNvbSxMPUR1cmhhbSxTVD1Ob3J0aCBDYXJvbGluYSxDPVVT",
   "organizations": [
     "Org1MSP",
     "Org2MSP"
   ],
   "privateBids": {
-    "\u0000bid\u0000PaintingAuction\u000019a7a0dd2c5456a3f79c2f9ccb09dddd0f1c9ece514dfea7cbea06e7cbc79855\u0000": {
+    "\u0000bid\u0000PaintingAuction\u000049466271ae879bd009e75a60730a12bfa986e75f263202ab81ccd3deec544a35\u0000": {
       "org": "Org2MSP",
-      "hash": "08db66c6cc226577a3153dadeb0b77d3834162fcf5f008b344058a1bc5c1b3a4"
+      "hash": "b8eaeb4422b93abdfe4ccb6aa11b745b3d1cb072a99bd3eb3618f081fb1b1f89"
     },
-    "\u0000bid\u0000PaintingAuction\u00001b9dc0006fef10413df5cca927cabdf73ab854fe92b7a7b2eebfa00961fdac67\u0000": {
-      "org": "Org1MSP",
-      "hash": "15cd9a3e12825017f3e758499ac6138ebbe1adec4c49cc6ea6a0973fc6514666"
-    },
-    "\u0000bid\u0000PaintingAuction\u00005c049b0b4552d34c88e0f8fb5abca31fa04472b7e1336a16650ac8cfb0b16472\u0000": {
-      "org": "Org1MSP",
-      "hash": "0b8bbdb96b1d252e71ac1ed71df3580f7a0e31a743a4a09bbf5196dffef426b2"
-    },
-    "\u0000bid\u0000PaintingAuction\u00005ee4fa53b54ea0821e57a6884a1ada5eb04f136ee222e92d7399bcdf47556ea1\u0000": {
+    "\u0000bid\u0000PaintingAuction\u00005e4e637c68833b178739575f6fe09820b019551a8cfbb43a4d172e0aa864dfad\u0000": {
       "org": "Org2MSP",
-      "hash": "14d47d17acceceb483e87c14a4349844874fce549d71c6a23457d953ed8ffbd3"
+      "hash": "40107eab7a99dfc2f25d02b8ab840f12fd802a9f86d8d42b78d7b4409b2c15bd"
+    },
+    "\u0000bid\u0000PaintingAuction\u00008ef83011a5fb791f75ed008337839426f6b87981519e5d58ef5ada39c3044edd\u0000": {
+      "org": "Org1MSP",
+      "hash": "5cb50a17b5a21c02fc01306e3e9b54f4db67e9a440552ce898bbd7daa62dce0f"
+    },
+    "\u0000bid\u0000PaintingAuction\u0000915a908c8f2c368f4a3aedd73176656af81ddfab000b11629503403f3d97b185\u0000": {
+      "org": "Org1MSP",
+      "hash": "a458df18b12dffe4ae6d56a270134c2d55bd53fface034bd24381d0073d46a45"
     }
   },
   "revealedBids": {
-    "\u0000bid\u0000PaintingAuction\u00005c049b0b4552d34c88e0f8fb5abca31fa04472b7e1336a16650ac8cfb0b16472\u0000": {
+    "\u0000bid\u0000PaintingAuction\u00008ef83011a5fb791f75ed008337839426f6b87981519e5d58ef5ada39c3044edd\u0000": {
       "objectType": "bid",
       "price": 800,
       "org": "Org1MSP",
-      "bidder": "x509::CN=bidder1,OU=client+OU=org1+OU=department1::CN=ca.org1.example.com,O=org1.example.com,L=Durham,ST=North Carolina,C=US"
+      "bidder": "eDUwOTo6Q049YmlkZGVyMSxPVT1jbGllbnQrT1U9b3JnMStPVT1kZXBhcnRtZW50MTo6Q049Y2Eub3JnMS5leGFtcGxlLmNvbSxPPW9yZzEuZXhhbXBsZS5jb20sTD1EdXJoYW0sU1Q9Tm9ydGggQ2Fyb2xpbmEsQz1VUw=="
     }
   },
   "winner": "",
@@ -319,11 +328,8 @@ The output should look something like the following:
 
 ```
 --> Submit the transaction to end the auction
-2021-01-28T16:47:27.501Z - error: [DiscoveryHandler]: compareProposalResponseResults[undefined] - read/writes result sets do not match index=1
-2021-01-28T16:47:27.503Z - error: [Transaction]: Error: No valid responses from any peers. Errors:
-    peer=undefined, status=grpc, message=Peer endorsements do not match
-******** FAILED to submit bid: Error: No valid responses from any peers. Errors:
-    peer=undefined, status=grpc, message=Peer endorsements do not match
+2020-11-06T13:16:11.591Z - warn: [TransactionEventHandler]: strategyFail: commit failure for transaction "99feade5b7ec223839200867b57d18971c3e9f923efc95aaeec720727f927366": TransactionError: Commit of transaction 99feade5b7ec223839200867b57d18971c3e9f923efc95aaeec720727f927366 failed on peer peer0.org1.example.com:7051 with status ENDORSEMENT_POLICY_FAILURE
+******** FAILED to submit bid: TransactionError: Commit of transaction 99feade5b7ec223839200867b57d18971c3e9f923efc95aaeec720727f927366 failed on peer peer0.org1.example.com:7051 with status ENDORSEMENT_POLICY_FAILURE
 ```
 
 Instead of ending the auction, the transaction results in an endorsement policy failure. The end of the auction needs to be endorsed by Org2. Before endorsing the transaction, the Org2 peer queries its private data collection for any winning bids that have not yet been revealed. Because Bidder4 created a bid that is above the winning price, the Org2 peer refuses to endorse the transaction that would end the auction.
@@ -347,50 +353,50 @@ The transaction was successfully endorsed by both Org1 and Org2, who both calcul
 *** Result: Auction: {
   "objectType": "auction",
   "item": "painting",
-  "seller": "x509::CN=seller,OU=client+OU=org1+OU=department1::CN=ca.org1.example.com,O=org1.example.com,L=Durham,ST=North Carolina,C=US",
+  "seller": "eDUwOTo6Q049c2VsbGVyLE9VPWNsaWVudCtPVT1vcmcxK09VPWRlcGFydG1lbnQxOjpDTj1jYS5vcmcxLmV4YW1wbGUuY29tLE89b3JnMS5leGFtcGxlLmNvbSxMPUR1cmhhbSxTVD1Ob3J0aCBDYXJvbGluYSxDPVVT",
   "organizations": [
     "Org1MSP",
     "Org2MSP"
   ],
   "privateBids": {
-    "\u0000bid\u0000PaintingAuction\u000019a7a0dd2c5456a3f79c2f9ccb09dddd0f1c9ece514dfea7cbea06e7cbc79855\u0000": {
+    "\u0000bid\u0000PaintingAuction\u000049466271ae879bd009e75a60730a12bfa986e75f263202ab81ccd3deec544a35\u0000": {
       "org": "Org2MSP",
-      "hash": "08db66c6cc226577a3153dadeb0b77d3834162fcf5f008b344058a1bc5c1b3a4"
+      "hash": "b8eaeb4422b93abdfe4ccb6aa11b745b3d1cb072a99bd3eb3618f081fb1b1f89"
     },
-    "\u0000bid\u0000PaintingAuction\u00001b9dc0006fef10413df5cca927cabdf73ab854fe92b7a7b2eebfa00961fdac67\u0000": {
-      "org": "Org1MSP",
-      "hash": "15cd9a3e12825017f3e758499ac6138ebbe1adec4c49cc6ea6a0973fc6514666"
-    },
-    "\u0000bid\u0000PaintingAuction\u00005c049b0b4552d34c88e0f8fb5abca31fa04472b7e1336a16650ac8cfb0b16472\u0000": {
-      "org": "Org1MSP",
-      "hash": "0b8bbdb96b1d252e71ac1ed71df3580f7a0e31a743a4a09bbf5196dffef426b2"
-    },
-    "\u0000bid\u0000PaintingAuction\u00005ee4fa53b54ea0821e57a6884a1ada5eb04f136ee222e92d7399bcdf47556ea1\u0000": {
+    "\u0000bid\u0000PaintingAuction\u00005e4e637c68833b178739575f6fe09820b019551a8cfbb43a4d172e0aa864dfad\u0000": {
       "org": "Org2MSP",
-      "hash": "14d47d17acceceb483e87c14a4349844874fce549d71c6a23457d953ed8ffbd3"
+      "hash": "40107eab7a99dfc2f25d02b8ab840f12fd802a9f86d8d42b78d7b4409b2c15bd"
+    },
+    "\u0000bid\u0000PaintingAuction\u00008ef83011a5fb791f75ed008337839426f6b87981519e5d58ef5ada39c3044edd\u0000": {
+      "org": "Org1MSP",
+      "hash": "5cb50a17b5a21c02fc01306e3e9b54f4db67e9a440552ce898bbd7daa62dce0f"
+    },
+    "\u0000bid\u0000PaintingAuction\u0000915a908c8f2c368f4a3aedd73176656af81ddfab000b11629503403f3d97b185\u0000": {
+      "org": "Org1MSP",
+      "hash": "a458df18b12dffe4ae6d56a270134c2d55bd53fface034bd24381d0073d46a45"
     }
   },
   "revealedBids": {
-    "\u0000bid\u0000PaintingAuction\u000019a7a0dd2c5456a3f79c2f9ccb09dddd0f1c9ece514dfea7cbea06e7cbc79855\u0000": {
+    "\u0000bid\u0000PaintingAuction\u000049466271ae879bd009e75a60730a12bfa986e75f263202ab81ccd3deec544a35\u0000": {
       "objectType": "bid",
       "price": 900,
       "org": "Org2MSP",
-      "bidder": "x509::CN=bidder4,OU=client+OU=org2+OU=department1::CN=ca.org2.example.com,O=org2.example.com,L=Hursley,ST=Hampshire,C=UK"
+      "bidder": "eDUwOTo6Q049YmlkZGVyNCxPVT1jbGllbnQrT1U9b3JnMitPVT1kZXBhcnRtZW50MTo6Q049Y2Eub3JnMi5leGFtcGxlLmNvbSxPPW9yZzIuZXhhbXBsZS5jb20sTD1IdXJzbGV5LFNUPUhhbXBzaGlyZSxDPVVL"
     },
-    "\u0000bid\u0000PaintingAuction\u00005c049b0b4552d34c88e0f8fb5abca31fa04472b7e1336a16650ac8cfb0b16472\u0000": {
-      "objectType": "bid",
-      "price": 800,
-      "org": "Org1MSP",
-      "bidder": "x509::CN=bidder1,OU=client+OU=org1+OU=department1::CN=ca.org1.example.com,O=org1.example.com,L=Durham,ST=North Carolina,C=US"
-    },
-    "\u0000bid\u0000PaintingAuction\u00005ee4fa53b54ea0821e57a6884a1ada5eb04f136ee222e92d7399bcdf47556ea1\u0000": {
+    "\u0000bid\u0000PaintingAuction\u00005e4e637c68833b178739575f6fe09820b019551a8cfbb43a4d172e0aa864dfad\u0000": {
       "objectType": "bid",
       "price": 700,
       "org": "Org2MSP",
-      "bidder": "x509::CN=bidder3,OU=client+OU=org2+OU=department1::CN=ca.org2.example.com,O=org2.example.com,L=Hursley,ST=Hampshire,C=UK"
+      "bidder": "eDUwOTo6Q049YmlkZGVyMyxPVT1jbGllbnQrT1U9b3JnMitPVT1kZXBhcnRtZW50MTo6Q049Y2Eub3JnMi5leGFtcGxlLmNvbSxPPW9yZzIuZXhhbXBsZS5jb20sTD1IdXJzbGV5LFNUPUhhbXBzaGlyZSxDPVVL"
+    },
+    "\u0000bid\u0000PaintingAuction\u00008ef83011a5fb791f75ed008337839426f6b87981519e5d58ef5ada39c3044edd\u0000": {
+      "objectType": "bid",
+      "price": 800,
+      "org": "Org1MSP",
+      "bidder": "eDUwOTo6Q049YmlkZGVyMSxPVT1jbGllbnQrT1U9b3JnMStPVT1kZXBhcnRtZW50MTo6Q049Y2Eub3JnMS5leGFtcGxlLmNvbSxPPW9yZzEuZXhhbXBsZS5jb20sTD1EdXJoYW0sU1Q9Tm9ydGggQ2Fyb2xpbmEsQz1VUw=="
     }
   },
-  "winner": "x509::CN=bidder4,OU=client+OU=org2+OU=department1::CN=ca.org2.example.com,O=org2.example.com,L=Hursley,ST=Hampshire,C=UK",
+  "winner": "eDUwOTo6Q049YmlkZGVyNCxPVT1jbGllbnQrT1U9b3JnMitPVT1kZXBhcnRtZW50MTo6Q049Y2Eub3JnMi5leGFtcGxlLmNvbSxPPW9yZzIuZXhhbXBsZS5jb20sTD1IdXJzbGV5LFNUPUhhbXBzaGlyZSxDPVVL",
   "price": 900,
   "status": "ended"
 }
@@ -405,6 +411,6 @@ rm -rf wallet
 
 You can then navigate to the test network directory and bring down the network:
 ````
-cd ../../test-network/
+cd ../../../test-network/
 ./network.sh down
 ````
