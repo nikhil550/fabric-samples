@@ -23,7 +23,7 @@ function prettyJSONString(inputString) {
     }
 }
 
-async function bid(ccp,wallet,user,orgMSP,item,quantity,price) {
+async function ask(ccp,wallet,user,orgMSP,item,quantity,price) {
     try {
 
         const gateway = new Gateway();
@@ -36,32 +36,32 @@ async function bid(ccp,wallet,user,orgMSP,item,quantity,price) {
         const contract = network.getContract(myChaincodeName);
 
         console.log('\n--> Evaluate Transaction: get your client ID');
-        let buyer = await contract.evaluateTransaction('GetID');
-        console.log('*** Result:  Buyer ID is ' + buyer.toString());
+        let seller = await contract.evaluateTransaction('GetID');
+        console.log('*** Result:  Seller ID is ' + seller.toString());
 
-        let bidData = { objectType: 'bid', quantity: parseInt(quantity) , price: parseInt(price), org: orgMSP, buyer: buyer.toString()};
+        let askData = { objectType: 'ask', quantity: parseInt(quantity) , price: parseInt(price), org: orgMSP, seller: seller.toString()};
 
-        let statefulTxn = contract.createTransaction('Bid');
+        let statefulTxn = contract.createTransaction('Ask');
         statefulTxn.setEndorsingOrganizations(orgMSP);
-        let tmapData = Buffer.from(JSON.stringify(bidData));
+        let tmapData = Buffer.from(JSON.stringify(askData));
         statefulTxn.setTransient({
-              bid: tmapData
+              ask: tmapData
             });
 
-        let bidID = statefulTxn.getTransactionId();
+        let askID = statefulTxn.getTransactionId();
 
-        console.log('\n--> Submit Transaction: Create the bid that is stored in your private data collection of your organization');
+        console.log('\n--> Submit Transaction: Create the ask that is stored in your private data collection of your organization');
         await statefulTxn.submit(item);
         console.log('*** Result: committed');
-        console.log('*** Result ***SAVE THIS VALUE*** BidID: ' + bidID.toString());
+        console.log('*** Result ***SAVE THIS VALUE*** AskID: ' + askID.toString());
 
-        console.log('\n--> Evaluate Transaction: read the bid that was just created');
-        let result = await contract.evaluateTransaction('QueryBid',item, bidID);
-        console.log('*** Result:  Bid: ' + prettyJSONString(result.toString()));
+        console.log('\n--> Evaluate Transaction: read the ask that was just created');
+        let result = await contract.evaluateTransaction('QueryAsk',item, askID);
+        console.log('*** Result:  Ask: ' + prettyJSONString(result.toString()));
 
         gateway.disconnect();
     } catch (error) {
-        console.error(`******** FAILED to submit bid: ${error}`);
+        console.error(`******** FAILED to submit ask: ${error}`);
         if (error.stack) {
 			console.error(error.stack);
 		}
@@ -75,7 +75,7 @@ async function main() {
         if (process.argv[2] == undefined || process.argv[3] == undefined
             || process.argv[4] == undefined || process.argv[5] == undefined
             || process.argv[6] == undefined) {
-            console.log("Usage: node bid.js org userID item quantity price");
+            console.log("Usage: node ask.js org userID item quantity price");
             process.exit(1);
         }
 
@@ -91,7 +91,7 @@ async function main() {
             const ccp = buildCCPOrg1();
             const walletPath = path.join(__dirname, 'wallet/org1');
             const wallet = await buildWallet(Wallets, walletPath);
-            await bid(ccp,wallet,user,orgMSP,item,quantity,price);
+            await ask(ccp,wallet,user,orgMSP,item,quantity,price);
         }
         else if (org == 'Org2' || org == 'org2') {
 
@@ -99,9 +99,9 @@ async function main() {
             const ccp = buildCCPOrg2();
             const walletPath = path.join(__dirname, 'wallet/org2');
             const wallet = await buildWallet(Wallets, walletPath);
-            await bid(ccp,wallet,user,orgMSP,item,quantity,price);
+            await ask(ccp,wallet,user,orgMSP,item,quantity,price);
         }  else {
-            console.log("Usage: node bid.js org userID item quantity price");
+            console.log("Usage: node ask.js org userID item quantity price");
             console.log("Org must be Org1 or Org2");
           }
     } catch (error) {

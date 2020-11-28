@@ -21,14 +21,14 @@ You can then run the following command to deploy a new network.
 
 Run the following command to deploy the auction smart contract.
 ```
-./network.sh deployCC -ccn auction -ccp ../auction/ascending/chaincode-go/ -ccep "OR('Org1MSP.peer','Org2MSP.peer')"
+./network.sh deployCC -ccn auction -ccp ../auction/ascending/chaincode-go/ -ccep "OR('Org1MSP.peer','Org2MSP.peer')" -ccl go
 ```
 
 ## Install the application dependencies
 
 Change into the `application-javascript` directory:
 ```
-cd fabric-samples/auction/dutch-auction/application-javascript
+cd fabric-samples/auction/ascending/application-javascript
 ```
 
 From this directory, run the following command to download the application dependencies if you have not done so already:
@@ -63,16 +63,7 @@ node registerEnrollUser.js org2 seller3
 node registerEnrollUser.js org2 seller4
 ```
 
-## Create the auction
-
-The seller from Org1 would like to create an auction to sell 100 tickets. Run the following command to use the seller wallet to run the `createAuction.js` application. The seller needs to provide an ID for the auction, the item to be sold, and the quantity to be sold to create the auction:
-```
-node createAuction.js org1 seller1 auction1 tickets
-```
-
-You will see the application query the auction after it is created.
-
-## Bid on the auction
+## Bid on the items
 
 We can now use the bidder wallets to submit bids to the auction:
 
@@ -81,17 +72,6 @@ We can now use the bidder wallets to submit bids to the auction:
 Bidder1 will create a bid to purchase 50 tickets for 80 dollars.
 ```
 node bid.js org1 bidder1 auction1 50 80
-```
-
-The application will query the bid after it is created:
-```
-*** Result:  Bid: {
-  "objectType": "bid",
-  "quantity": 50,
-  "price": 80,
-  "org": "Org1MSP",
-  "buyer": "eDUwOTo6Q049YmlkZGVyMSxPVT1jbGllbnQrT1U9b3JnMStPVT1kZXBhcnRtZW50MTo6Q049Y2Eub3JnMS5leGFtcGxlLmNvbSxPPW9yZzEuZXhhbXBsZS5jb20sTD1EdXJoYW0sU1Q9Tm9ydGggQ2Fyb2xpbmEsQz1VUw=="
-}
 ```
 
 The `bid.js` application also prints the bidID:
@@ -103,6 +83,125 @@ The BidID acts as the unique identifier for the bid. This ID allows you to query
 ```
 export BIDDER1_BID_ID=61e9b0fc1913f10872625bea4a6555522c70070416209848cc1d8fb6101133ad
 ```
+
+### Bid as bidder2
+
+Let's submit another bid. Bidder2 would like to purchase 40 tickets for 50 dollars.
+```
+node bid.js org1 bidder2 tickets 20 40
+```
+
+Save the Bid ID returned by the application:
+```
+export BIDDER2_BID_ID=30d12fcb111c9724d70786eaf53e1625a495152d96c4d0393a22dae2c2830329
+```
+
+
+### Bid as bidder3 from Org2
+
+Bidder3 will bid for 30 tickets at 70 dollars:
+```
+node bid.js org2 bidder3 auction1 20 60
+```
+
+Save the Bid ID returned by the application:
+```
+export BIDDER3_BID_ID=37816e5b182f4a1bfdd404e8f26efb9198ff98d20e84b044f4ac126599bc6f25
+```
+
+
+### Bid as bidder4
+
+Bidder4 from Org2 would like to purchase 15 tickets for 60 dollars:
+```
+node bid.js org2 bidder4 auction1 20 80
+```
+
+Save the Bid ID returned by the application:
+```
+export BIDDER4_BID_ID=7d3ecab7b5f286f379a7fa50d10921e81dc3d5163bcb0f1ebfb7111545e22a52
+```
+
+
+### Bid as bidder5
+
+Bidder5 from Org2 will bid for 20 tickets at 60 dollars:
+```
+node bid.js org2 bidder4 auction1 20 100
+```
+
+Save the Bid ID returned by the application:
+```
+export BIDDER5_BID_ID=3245049bd81a8cecfbc006f29eed1df0570e385e63daedd19c06b2c92d2067ae
+```
+
+### Ask as seller1
+
+Bidder1 will create a bid to purchase 50 tickets for 80 dollars.
+```
+node ask.js org1 seller1 tickets 20 30
+```
+
+The `bid.js` application also prints the bidID:
+```
+*** Result ***SAVE THIS VALUE*** BidID: 61e9b0fc1913f10872625bea4a6555522c70070416209848cc1d8fb6101133ad
+```
+
+The BidID acts as the unique identifier for the bid. This ID allows you to query the bid using the `queryBid.js` program and add the bid to the auction. Save the bidID returned by the application as an environment variable in your terminal:
+```
+export BIDDER1_BID_ID=61e9b0fc1913f10872625bea4a6555522c70070416209848cc1d8fb6101133ad
+```
+
+### Bid as bidder2
+
+Let's submit another bid. Bidder2 would like to purchase 40 tickets for 50 dollars.
+```
+node bid.js org1 bidder2 tickets 20 40
+```
+
+Save the Bid ID returned by the application:
+```
+export BIDDER2_BID_ID=30d12fcb111c9724d70786eaf53e1625a495152d96c4d0393a22dae2c2830329
+```
+
+
+### Bid as bidder3 from Org2
+
+Bidder3 will bid for 30 tickets at 70 dollars:
+```
+node bid.js org2 bidder3 auction1 20 60
+```
+
+Save the Bid ID returned by the application:
+```
+export BIDDER3_BID_ID=37816e5b182f4a1bfdd404e8f26efb9198ff98d20e84b044f4ac126599bc6f25
+```
+
+
+### Bid as bidder4
+
+Bidder4 from Org2 would like to purchase 15 tickets for 60 dollars:
+```
+node bid.js org2 bidder4 auction1 20 80
+```
+
+Save the Bid ID returned by the application:
+```
+export BIDDER4_BID_ID=7d3ecab7b5f286f379a7fa50d10921e81dc3d5163bcb0f1ebfb7111545e22a52
+```
+
+
+## Create the auction
+
+The seller from Org1 would like to create an auction to sell 100 tickets. Run the following command to use the seller wallet to run the `createAuction.js` application. The seller needs to provide an ID for the auction, the item to be sold, and the quantity to be sold to create the auction:
+```
+node createAuction.js org1 seller1 auction1 tickets
+```
+
+You will see the application query the auction after it is created.
+
+
+
 This value will be different for each transaction, so you will need to use the value returned in your terminal.
 
 Now that the bid has been created, you can submit the bid to the auction. Run the following command to submit the bid that was just created:
@@ -133,34 +232,13 @@ The hash of bid is added to the list of private bids in that have been submitted
 }
 ```
 
-### Bid as bidder2
 
-Let's submit another bid. Bidder2 would like to purchase 40 tickets for 50 dollars.
-```
-node bid.js org1 bidder2 tickets 40 50
-```
-
-Save the Bid ID returned by the application:
-```
-export BIDDER2_BID_ID=911c7920a7ba4643a531cb2d5d274d303fdb2e6800f50aeb6b725af0b7162ea2
-```
 
 Submit bidder2's bid to the auction:
 ```
 node submitBid.js org1 bidder2 auction1 $BIDDER2_BID_ID
 ```
 
-### Bid as bidder3 from Org2
-
-Bidder3 will bid for 30 tickets at 70 dollars:
-```
-node bid.js org2 bidder3 auction1 30 70
-```
-
-Save the Bid ID returned by the application:
-```
-export BIDDER3_BID_ID=93a8164628fa28290554b5dc6f505cbb8c7498d8f7c60f7df33d4a1cffb8fa47
-```
 
 Add bidder3's bid to the auction:
 ```
@@ -201,33 +279,10 @@ Because bidder3 belongs to Org2, submitting the bid will add Org2 to the list of
 
 Now that a bid from Org2 has been added to the auction, any updates to the auction need to be endorsed by the Org2 peer. The applications will use the `"organizations"` field to specify which organizations need to endorse submitting a new bid, revealing a bid, or updating the auction status.
 
-### Bid as bidder4
-
-Bidder4 from Org2 would like to purchase 15 tickets for 60 dollars:
-```
-node bid.js org2 bidder4 auction1 15 60
-```
-
-Save the Bid ID returned by the application:
-```
-export BIDDER4_BID_ID=324de04c459c5a38f103e9096dea06e19faca88f84dd5175ba0e6fd6a9d7d140
-```
 
 Add bidder4's bid to the auction:
 ```
 node submitBid.js org2 bidder4 auction1 $BIDDER4_BID_ID
-```
-
-### Bid as bidder5
-
-Bidder5 from Org2 will bid for 20 tickets at 60 dollars:
-```
-node bid.js org2 bidder4 auction1 20 60
-```
-
-Save the Bid ID returned by the application:
-```
-export BIDDER5_BID_ID=3245049bd81a8cecfbc006f29eed1df0570e385e63daedd19c06b2c92d2067ae
 ```
 
 Add bidder4's bid to the auction:

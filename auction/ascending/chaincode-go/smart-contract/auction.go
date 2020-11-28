@@ -28,7 +28,6 @@ type Auction struct {
 	Demand   int               `json:"demand"`
 	Sellers  map[string]Seller `json:"sellers"`
 	Bidders  map[string]Bidder `json:"bidders"`
-	Winners  map[string]Winner `json:"winners"`
 }
 
 // Bid is the structure of a bid in private state
@@ -49,11 +48,18 @@ type Ask struct {
 	Price    int    `json:"price"`
 }
 
+// BidAskHash is the structure of a private bid or ask in the public order book
+type BidAskHash struct {
+	Org  string `json:"org"`
+	Hash string `json:"hash"`
+}
+
 // Bidder is the structure that lives on the auction
 type Bidder struct {
 	Buyer    string `json:"buyer"`
 	Org      string `json:"org"`
-	Quantity int    `json:"quantity"`
+	Quantity int    `json:"quantityBid"`
+	Won      int    `json:"quantityWon"`
 }
 
 // Seller is the structure that lives on the auction
@@ -63,16 +69,9 @@ type Seller struct {
 	Quantity int    `json:"quantity"`
 }
 
-// Winners stores the winners of the auction round
-type Winner struct {
-	Buyer       string `json:"buyer"`
-	QuantityBid int    `json:"quantityBid"`
-	QuantityWon int    `json:"quantityWon"`
-}
-
 // CreateAuction creates on auction on the public channel. Each auction round is
 // stored as a seperate key in the world state
-func (s *SmartContract) CreateAuction(ctx contractapi.TransactionContextInterface, auctionID string, itemsold string) error {
+func (s *SmartContract) CreateAuction(ctx contractapi.TransactionContextInterface, auctionID string, itemSold string, reservePrice int) error {
 
 	// get org of submitting client
 	clientOrgID, err := ctx.GetClientIdentity().GetMSPID()
@@ -80,23 +79,28 @@ func (s *SmartContract) CreateAuction(ctx contractapi.TransactionContextInterfac
 		return fmt.Errorf("failed to get client identity %v", err)
 	}
 
-	// Create auction
 	sellers := make(map[string]Seller)
 	bidders := make(map[string]Bidder)
-	winners := make(map[string]Winner)
+
+	// Check 1: check if there is an ask from your org that is lower than the reserve price
+//	err = queryAllAsks(ctx, reservePrice, itemSold, sellers)
+//	if err != nil {
+//		return fmt.Errorf("Cannot close auction: %v", err)
+//	}
+
+	// Create auction
 
 	auction := Auction{
 		Type:     "auction",
 		Round:    0,
 		Status:   "open",
-		ItemSold: itemsold,
+		ItemSold: itemSold,
 		Orgs:     []string{clientOrgID},
 		Quantity: 0,
 		Demand:   0,
-		Price:    0,
+		Price:    reservePrice,
 		Sellers:  sellers,
 		Bidders:  bidders,
-		Winners:  winners,
 	}
 
 	auctionBytes, err := json.Marshal(auction)
@@ -105,13 +109,13 @@ func (s *SmartContract) CreateAuction(ctx contractapi.TransactionContextInterfac
 	}
 
 	// create a composite key using the round
-	auctionKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(auction.Round)})
-	if err != nil {
-		return fmt.Errorf("failed to create composite key: %v", err)
-	}
+	//auctionKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(auction.Round)})
+	//if err != nil {
+	//	return fmt.Errorf("failed to create composite key: %v", err)
+	//}
 
 	// put auction into state
-	err = ctx.GetStub().PutState(auctionKey, auctionBytes)
+	err = ctx.GetStub().PutState(auctionID, auctionBytes)
 	if err != nil {
 		return fmt.Errorf("failed to put auction in public data: %v", err)
 	}
@@ -125,42 +129,65 @@ func (s *SmartContract) CreateAuction(ctx contractapi.TransactionContextInterfac
 	return nil
 }
 
-func (s *SmartContract) CreateNewRound(ctx contractapi.TransactionContextInterface, auctionID string, price int) error {
+func (s *SmartContract) CreateNewRound(ctx contractapi.TransactionContextInterface, auctionID string, newRound int, price int) error {
 
-	auctionBytes, err := ctx.GetStub().GetState(auctionID)
+	clientOrgID, err := ctx.GetClientIdentity().GetMSPID()
 	if err != nil {
-		return fmt.Errorf("failed to get auction %v: %v", auctionID, err)
+		return fmt.Errorf("failed getting the client's MSPID: %v", err)
 	}
 
-	if auctionBytes == nil {
-		return fmt.Errorf("Auction interest object %v not found", auctionID)
+	// check 1: was there a previous round
+
+	previousRound := newRound - 1
+	if previousRound < 0 {
+		return fmt.Errorf("no previous round")
 	}
 
-	var auctionJSON Auction
-	err = json.Unmarshal(auctionBytes, &auctionJSON)
+	auction, err := s.QueryAuctionRound(ctx, auctionID, previousRound)
 	if err != nil {
-		return fmt.Errorf("failed to create auction object JSON: %v", err)
+		return err
 	}
 
-	// TODO: logic on when to create a new round
-	// check 1: Demand > supply
-	// check 2: A there is a higher ask in our orgs book
+	// check 2: confirm that Demand > Supply for the previous round before creating a new round
 
-	auctionJSON.Round = auctionJSON.Round + 1
+	nextRound := auction.Round + 1
 
-	auctionJSON.Price = price
+	if auction.Quantity > auction.Demand {
+		return fmt.Errorf("Cannot create new round: demand is not yet greater than supply")
+	}
 
-	newRound, _ := json.Marshal(auctionJSON)
+	// check 3: check if there is a lower ask in our orgs book
 
+	err = queryAllAsks(ctx, auction.Price, auction.ItemSold, auction.Sellers)
+	if err != nil {
+		return fmt.Errorf("Cannot close auction: %v", err)
+	}
+
+	// Becuase both checks passed, create a new round
+
+	auction.Round = nextRound
+
+	auction.Price = price
+
+	newAuctionRound, err := json.Marshal(auction)
+	if err != nil {
+		return err
+	}
 	// create a composite key using the transaction ID
-	newRoundKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(auctionJSON.Round)})
+	newAuctionRoundKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(auction.Round)})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)
 	}
 
-	err = ctx.GetStub().PutState(newRoundKey, newRound)
+	err = ctx.GetStub().PutState(newAuctionRoundKey, newAuctionRound)
 	if err != nil {
 		return fmt.Errorf("failed to close auction: %v", err)
+	}
+
+	// set the seller of the auction as an endorser
+	err = setAssetStateBasedEndorsement(ctx, auctionID, clientOrgID)
+	if err != nil {
+		return fmt.Errorf("failed setting state based endorsement for new organization: %v", err)
 	}
 
 	return nil
@@ -183,55 +210,87 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 		return fmt.Errorf("failed to get client MSP ID: %v", err)
 	}
 
+	auction, err := s.QueryAuctionRound(ctx, auctionID, round)
+	if err != nil {
+		return err
+	}
+
+	// Check 1: the auction needs to be open for users to add their bid
+	Status := auction.Status
+	if Status != "open" {
+		return fmt.Errorf("cannot join closed or ended auction")
+	}
+
+	// Check 2: the user needs to have joined the previous auction in order to
+	// add their bid
+
+	// create a composite key for bid using the transaction ID
+	bidKey, err := ctx.GetStub().CreateCompositeKey(bidKeyType, []string{auction.ItemSold, txID})
+	if err != nil {
+		return fmt.Errorf("failed to create composite key: %v", err)
+	}
+
+	previousRound := round - 1
+	if previousRound < 0 {
+		return fmt.Errorf("no previous round")
+	}
+
+	auctionLastRound, err := s.QueryAuctionRound(ctx, auctionID, previousRound)
+	if err != nil {
+		return err
+	}
+
+	previousBidders := make(map[string]Bidder)
+	previousBidders = auctionLastRound.Bidders
+
+	if _, previousBid := previousBidders[bidKey]; previousBid {
+
+		//bid is in the previous auction, no action to take
+
+	} else {
+		return fmt.Errorf("bidder needs to have joined previous round")
+	}
+
+	// create new bid
+
+	NewBidder := Bidder{
+		Buyer:    clientID,
+		Org:      clientOrgID,
+		Quantity: quantity,
+		Won:      0,
+	}
+
+	// add the bid to the new list of bidders
+
+	bidders := make(map[string]Bidder)
+	bidders = auction.Bidders
+	auction.Demand = auction.Demand + NewBidder.Quantity
+	bidders[bidKey] = NewBidder
+
+	// quantity won will depend on whether supply is the same as demand
+	if auction.Demand < auction.Quantity {
+		for _, bidder := range bidders {
+			bidder.Won = bidder.Quantity
+		}
+	} else {
+		for _, bidder := range bidders {
+			bidder.Won = (bidder.Quantity * auction.Demand) / auction.Quantity
+		}
+	}
+
+	auction.Bidders = bidders
+
 	// create a composite for auction using the round
 	auctionKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(round)})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)
 	}
 
-	// get the auction from state
-	auctionBytes, err := ctx.GetStub().GetState(auctionKey)
-
-	var auctionJSON Auction
-
-	if auctionBytes == nil {
-		return fmt.Errorf("Auction not found: %v", auctionID)
-	}
-	err = json.Unmarshal(auctionBytes, &auctionJSON)
-	if err != nil {
-		return fmt.Errorf("failed to create auction object JSON: %v", err)
-	}
-
-	// the auction needs to be open for users to add their bid
-	Status := auctionJSON.Status
-	if Status != "open" {
-		return fmt.Errorf("cannot join closed or ended auction")
-	}
-
-	NewBidder := Bidder{
-		Buyer:    clientID,
-		Org:      clientOrgID,
-		Quantity: quantity,
-	}
-
-	// create a composite key for bid using the transaction ID
-	bidKey, err := ctx.GetStub().CreateCompositeKey(bidKeyType, []string{auctionJSON.ItemSold, txID})
-	if err != nil {
-		return fmt.Errorf("failed to create composite key: %v", err)
-	}
-
-	bidders := make(map[string]Bidder)
-	bidders = auctionJSON.Bidders
-	bidders[bidKey] = NewBidder
-	auctionJSON.Bidders = bidders
-
-	auctionJSON.Demand = auctionJSON.Demand + NewBidder.Quantity
-
 	// Add the bidding organization to the list of participating organization's if it is not already
-	Orgs := auctionJSON.Orgs
+	Orgs := auction.Orgs
 	if !(contains(Orgs, clientOrgID)) {
 		newOrgs := append(Orgs, clientOrgID)
-		auctionJSON.Orgs = newOrgs
+		auction.Orgs = newOrgs
 
 		err = addAssetStateBasedEndorsement(ctx, auctionKey, clientOrgID)
 		if err != nil {
@@ -239,7 +298,7 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 		}
 	}
 
-	newAuctionBytes, _ := json.Marshal(auctionJSON)
+	newAuctionBytes, _ := json.Marshal(auction)
 
 	err = ctx.GetStub().PutState(auctionKey, newAuctionBytes)
 	if err != nil {
@@ -263,27 +322,13 @@ func (s *SmartContract) SubmitAsk(ctx contractapi.TransactionContextInterface, a
 		return fmt.Errorf("failed to get client MSP ID: %v", err)
 	}
 
-	// create a composite for auction using the round
-	auctionKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(round)})
+	auction, err := s.QueryAuctionRound(ctx, auctionID, round)
 	if err != nil {
-		return fmt.Errorf("failed to create composite key: %v", err)
-	}
-
-	// get the auction from state
-	auctionBytes, err := ctx.GetStub().GetState(auctionKey)
-
-	var auctionJSON Auction
-
-	if auctionBytes == nil {
-		return fmt.Errorf("Auction not found: %v", auctionID)
-	}
-	err = json.Unmarshal(auctionBytes, &auctionJSON)
-	if err != nil {
-		return fmt.Errorf("failed to create auction object JSON: %v", err)
+		return err
 	}
 
 	// the auction needs to be open for users to add their bid
-	Status := auctionJSON.Status
+	Status := auction.Status
 	if Status != "open" {
 		return fmt.Errorf("cannot join closed or ended auction")
 	}
@@ -296,23 +341,29 @@ func (s *SmartContract) SubmitAsk(ctx contractapi.TransactionContextInterface, a
 	}
 
 	// create a composite key for ask using the transaction ID
-	askKey, err := ctx.GetStub().CreateCompositeKey(askKeyType, []string{auctionJSON.ItemSold, txID})
+	askKey, err := ctx.GetStub().CreateCompositeKey(askKeyType, []string{auction.ItemSold, txID})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)
 	}
 
 	sellers := make(map[string]Seller)
-	sellers = auctionJSON.Sellers
+	sellers = auction.Sellers
 	sellers[askKey] = NewSeller
-	auctionJSON.Sellers = sellers
+	auction.Sellers = sellers
 
-	auctionJSON.Quantity = auctionJSON.Quantity + NewSeller.Quantity
+	auction.Quantity = auction.Quantity + NewSeller.Quantity
 
-	// Add the bidding organization to the list of participating organization's if it is not already
-	Orgs := auctionJSON.Orgs
+	// create a composite for auction using the round
+	auctionKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(round)})
+	if err != nil {
+		return fmt.Errorf("failed to create composite key: %v", err)
+	}
+
+	// Add the selling organization to the list of participating organization's if it is not already
+	Orgs := auction.Orgs
 	if !(contains(Orgs, clientOrgID)) {
 		newOrgs := append(Orgs, clientOrgID)
-		auctionJSON.Orgs = newOrgs
+		auction.Orgs = newOrgs
 
 		err = addAssetStateBasedEndorsement(ctx, auctionKey, clientOrgID)
 		if err != nil {
@@ -320,7 +371,7 @@ func (s *SmartContract) SubmitAsk(ctx contractapi.TransactionContextInterface, a
 		}
 	}
 
-	newAuctionBytes, _ := json.Marshal(auctionJSON)
+	newAuctionBytes, _ := json.Marshal(auction)
 
 	err = ctx.GetStub().PutState(auctionKey, newAuctionBytes)
 	if err != nil {
@@ -334,30 +385,31 @@ func (s *SmartContract) SubmitAsk(ctx contractapi.TransactionContextInterface, a
 // bids from being added to the auction, and allows users to reveal their bid
 func (s *SmartContract) CloseAuction(ctx contractapi.TransactionContextInterface, auctionID string, round int) error {
 
+	auction, err := s.QueryAuctionRound(ctx, auctionID, round)
+	if err != nil {
+		return err
+	}
+
+	Status := auction.Status
+	if Status != "open" {
+		return fmt.Errorf("Can only close an open auction")
+	}
+
+	// check if there is a winning bid that has yet to be revealed
+	err = queryAllBids(ctx, auction.Price,  auction.ItemSold, auction.Bidders)
+	if err != nil {
+		return fmt.Errorf("Cannot close auction: %v", err)
+	}
+
+	auction.Status = string("closed")
+
+	closedAuction, _ := json.Marshal(auction)
+
 	// create a composite key using the round
 	auctionKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(round)})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)
 	}
-
-	auctionBytes, err := ctx.GetStub().GetState(auctionKey)
-	if err != nil {
-		return fmt.Errorf("failed to get auction %v: %v", auctionKey, err)
-	}
-
-	if auctionBytes == nil {
-		return fmt.Errorf("Auction interest object %v not found", auctionKey)
-	}
-
-	var auctionJSON Auction
-	err = json.Unmarshal(auctionBytes, &auctionJSON)
-	if err != nil {
-		return fmt.Errorf("failed to create auction object JSON: %v", err)
-	}
-
-	auctionJSON.Status = string("closed")
-
-	closedAuction, _ := json.Marshal(auctionJSON)
 
 	err = ctx.GetStub().PutState(auctionKey, closedAuction)
 	if err != nil {
@@ -371,43 +423,27 @@ func (s *SmartContract) CloseAuction(ctx contractapi.TransactionContextInterface
 // of the auction
 func (s *SmartContract) EndAuction(ctx contractapi.TransactionContextInterface, auctionID string, round int) error {
 
+	auction, err := s.QueryAuctionRound(ctx, auctionID, round)
+	if err != nil {
+		return err
+	}
+
+	Status := auction.Status
+	if Status != "closed" {
+		return fmt.Errorf("Can only end a closed auction")
+	}
+
+	auction.Status = string("ended")
+
+	closedAuction, _ := json.Marshal(auction)
+
 	// create a composite key using the round
 	auctionKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(round)})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)
 	}
 
-	auctionBytes, err := ctx.GetStub().GetState(auctionKey)
-	if err != nil {
-		return fmt.Errorf("failed to get auction %v: %v", auctionKey, err)
-	}
-
-	if auctionBytes == nil {
-		return fmt.Errorf("Auction interest object %v not found", auctionKey)
-	}
-
-	var auctionJSON Auction
-	err = json.Unmarshal(auctionBytes, &auctionJSON)
-	if err != nil {
-		return fmt.Errorf("failed to create auction object JSON: %v", err)
-	}
-
-	Status := auctionJSON.Status
-	if Status != "closed" {
-		return fmt.Errorf("Can only end a closed auction")
-	}
-
-	// check if there is a winning bid that has yet to be revealed
-	//	err = queryAllBids(ctx, auctionJSON.Price, auctionJSON.Bidders)
-	//	if err != nil {
-	//		return fmt.Errorf("Cannot close auction: %v", err)
-	//	}
-
-	auctionJSON.Status = string("ended")
-
-	closedAuction, _ := json.Marshal(auctionJSON)
-
-	err = ctx.GetStub().PutState(auctionID, closedAuction)
+	err = ctx.GetStub().PutState(auctionKey, closedAuction)
 	if err != nil {
 		return fmt.Errorf("failed to close auction: %v", err)
 	}
