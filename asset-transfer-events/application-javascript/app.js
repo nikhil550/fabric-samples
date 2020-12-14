@@ -85,7 +85,7 @@ const { buildCAClient, registerAndEnrollUser, enrollAdmin } = require('../../tes
 const { buildCCPOrg1, buildWallet } = require('../../test-application/javascript/AppUtil.js');
 
 const channelName = 'mychannel';
-const chaincodeName = 'events';
+const chaincodeName = 'asset-transfer-events-javascript';
 
 const org1 = 'Org1MSP';
 const Org1UserId = 'appUser1';
@@ -152,62 +152,6 @@ async function initGatewayForOrg1(useCommitEvents) {
 	}
 }
 
-function checkAsset(org, resultBuffer, color, size, owner, appraisedValue, price) {
-	console.log(`${GREEN}<-- Query results from ${org}${RESET}`);
-
-	let asset;
-	if (resultBuffer) {
-		asset = JSON.parse(resultBuffer.toString('utf8'));
-	} else {
-		console.log(`${RED}*** Failed to read asset${RESET}`);
-	}
-	console.log(`*** verify asset ${asset.ID}`);
-
-	if (asset) {
-		if (asset.Color === color) {
-			console.log(`*** asset ${asset.ID} has color ${asset.Color}`);
-		} else {
-			console.log(`${RED}*** asset ${asset.ID} has color of ${asset.Color}${RESET}`);
-		}
-		if (asset.Size === size) {
-			console.log(`*** asset ${asset.ID} has size ${asset.Size}`);
-		} else {
-			console.log(`${RED}*** Failed size check from ${org} - asset ${asset.ID} has size of ${asset.Size}${RESET}`);
-		}
-		if (asset.Owner === owner) {
-			console.log(`*** asset ${asset.ID} owned by ${asset.Owner}`);
-		} else {
-			console.log(`${RED}*** Failed owner check from ${org} - asset ${asset.ID} owned by ${asset.Owner}${RESET}`);
-		}
-		if (asset.AppraisedValue === appraisedValue) {
-			console.log(`*** asset ${asset.ID} has appraised value ${asset.AppraisedValue}`);
-		} else {
-			console.log(`${RED}*** Failed appraised value check from ${org} - asset ${asset.ID} has appraised value of ${asset.AppraisedValue}${RESET}`);
-		}
-		if (price) {
-			if (asset.asset_properties && asset.asset_properties.Price === price) {
-				console.log(`*** asset ${asset.ID} has price ${asset.asset_properties.Price}`);
-			} else {
-				console.log(`${RED}*** Failed price check from ${org} - asset ${asset.ID} has price of ${asset.asset_properties.Price}${RESET}`);
-			}
-		}
-	}
-}
-
-function showTransactionData(transactionData) {
-	const creator = transactionData.actions[0].header.creator;
-	console.log(`    - submitted by: ${creator.mspid}-${creator.id_bytes.toString('hex')}`);
-	for (const endorsement of transactionData.actions[0].payload.action.endorsements) {
-		console.log(`    - endorsed by: ${endorsement.endorser.mspid}-${endorsement.endorser.id_bytes.toString('hex')}`);
-	}
-	const chaincode = transactionData.actions[0].payload.chaincode_proposal_payload.input.chaincode_spec;
-	console.log(`    - chaincode:${chaincode.chaincode_id.name}`);
-	console.log(`    - function:${chaincode.input.args[0].toString()}`);
-	for (let x = 1; x < chaincode.input.args.length; x++) {
-		console.log(`    - arg:${chaincode.input.args[x].toString()}`);
-	}
-}
-
 async function main() {
 	console.log(`${BLUE} **** START ****${RESET}`);
 	try {
@@ -225,37 +169,94 @@ async function main() {
 			//
 			console.log(`${BLUE} **** CHAINCODE EVENTS ****${RESET}`);
 			let transaction;
-			let listener;
+			let queryListener;
+      let mainListener;
 			const network1Org1 = await gateway1Org1.getNetwork(channelName);
 			const contract1Org1 = network1Org1.getContract(chaincodeName);
 
 			try {
 				// first create a listener to be notified of chaincode code events
 				// coming from the chaincode ID "events"
-				listener = async (event) => {
-					// The payload of the chaincode event is the value place there by the
-					// chaincode. Notice it is a byte data and the application will have
-					// to know how to deserialize.
-					// In this case we know that the chaincode will always place the asset
-					// being worked with as the payload for all events produced.
+				queryListener = async (event) => {
+
 					const asset = JSON.parse(event.payload.toString());
-					console.log(`${GREEN}<-- Contract Event Received: ${event.eventName} - ${JSON.stringify(asset)}${RESET}`);
 					// show the information available with the event
-					console.log(`*** Event: ${event.eventName}:${asset.ID}`);
 					// notice how we have access to the transaction information that produced this chaincode event
-					const eventTransaction = event.getTransactionEvent();
-					console.log(`*** transaction: ${eventTransaction.transactionId} status:${eventTransaction.status}`);
-					showTransactionData(eventTransaction.transactionData);
+
+          try {
+            const resultBuffer = await contract1Org1.evaluateTransaction('ReadAsset', asset.ID);
+            let result = JSON.parse(resultBuffer.toString('utf8'));
+            console.log(` Query results: ${resultBuffer}`);
+          } catch (readError) {
+            console.log(`${RED}<-- Failed: ReadAsset - ${readError}${RESET}`);
+          }
+
 					// notice how we have access to the full block that contains this transaction
 					const eventBlock = eventTransaction.getBlockEvent();
 					console.log(`*** block: ${eventBlock.blockNumber.toString()}`);
 				};
 				// now start the client side event service and register the listener
 				console.log(`${GREEN}--> Start contract event stream to peer in Org1${RESET}`);
-				await contract1Org1.addContractListener(listener);
+				await contract1Org1.addContractListener(queryListener);
 			} catch (eventError) {
 				console.log(`${RED}<-- Failed: Setup contract events - ${eventError}${RESET}`);
 			}
+
+      try {
+        // first create a listener to be notified of chaincode code events
+        // coming from the chaincode ID "events"
+        mainListener = async (event) => {
+          const asset = JSON.parse(event.payload.toString());
+          // show the information available with the event
+          console.log(`*** Event: ${event.eventName}:${asset.ID}`);
+          // notice how we have access to the transaction information that produced this chaincode event
+
+          switch (event.eventName) {
+              case `CreateAsset`:
+           	  try {
+                // U P D A T E
+                console.log(`${GREEN}--> Submit Transaction: UpdateAsset ${assetKey} update appraised value to 200`);
+                transaction = contract1Org1.createTransaction('UpdateAsset');
+                await transaction.submit(assetKey, 'blue', '10', 'Sam', '200');
+                console.log(`${GREEN}<-- Submit UpdateAsset Result: committed, asset ${assetKey}${RESET}`);
+              } catch (updateError) {
+                console.log(`${RED}<-- Failed: UpdateAsset - ${updateError}${RESET}`);
+              }
+                  break;
+              case `UpdateAsset`:
+              try {
+                // T R A N S F E R
+                console.log(`${GREEN}--> Submit Transaction: TransferAsset ${assetKey} to Mary`);
+                transaction = contract1Org1.createTransaction('TransferAsset');
+                await transaction.submit(assetKey, 'Mary');
+                console.log(`${GREEN}<-- Submit TransferAsset Result: committed, asset ${assetKey}${RESET}`);
+              } catch (transferError) {
+                console.log(`${RED}<-- Failed: TransferAsset - ${transferError}${RESET}`);
+              }
+                  break;
+              case `TransferAsset`:
+              try {
+                // D E L E T E
+                console.log(`${GREEN}--> Submit Transaction: DeleteAsset ${assetKey}`);
+                transaction = contract1Org1.createTransaction('DeleteAsset');
+                await transaction.submit(assetKey);
+                console.log(`${GREEN}<-- Submit DeleteAsset Result: committed, asset ${assetKey}${RESET}`);
+              } catch (deleteError) {
+                console.log(`${RED}<-- Failed: DeleteAsset - ${deleteError}${RESET}`);
+                if (deleteError.toString().includes('ENDORSEMENT_POLICY_FAILURE')) {
+                  console.log(`${RED}Be sure that chaincode was deployed with the endorsement policy "OR('Org1MSP.peer','Org2MSP.peer')"${RESET}`)
+                }
+              }
+                  break;
+          }
+
+        };
+        // now start the client side event service and register the listener
+        console.log(`${GREEN}--> Start contract event stream to peer in Org1${RESET}`);
+        await contract1Org1.addContractListener(mainListener);
+      } catch (eventError) {
+        console.log(`${RED}<-- Failed: Setup contract events - ${eventError}${RESET}`);
+      }
 
 			try {
 				// C R E A T E
@@ -266,263 +267,11 @@ async function main() {
 			} catch (createError) {
 				console.log(`${RED}<-- Submit Failed: CreateAsset - ${createError}${RESET}`);
 			}
-			try {
-				// R E A D
-				console.log(`${GREEN}--> Evaluate: ReadAsset, - ${assetKey} should be owned by Sam${RESET}`);
-				const resultBuffer = await contract1Org1.evaluateTransaction('ReadAsset', assetKey);
-				checkAsset(org1, resultBuffer, 'blue', '10', 'Sam', '100');
-			} catch (readError) {
-				console.log(`${RED}<-- Failed: ReadAsset - ${readError}${RESET}`);
-			}
 
-			try {
-				// U P D A T E
-				console.log(`${GREEN}--> Submit Transaction: UpdateAsset ${assetKey} update appraised value to 200`);
-				transaction = contract1Org1.createTransaction('UpdateAsset');
-				await transaction.submit(assetKey, 'blue', '10', 'Sam', '200');
-				console.log(`${GREEN}<-- Submit UpdateAsset Result: committed, asset ${assetKey}${RESET}`);
-			} catch (updateError) {
-				console.log(`${RED}<-- Failed: UpdateAsset - ${updateError}${RESET}`);
-			}
-			try {
-				// R E A D
-				console.log(`${GREEN}--> Evaluate: ReadAsset, - ${assetKey} should now have appraised value of 200${RESET}`);
-				const resultBuffer = await contract1Org1.evaluateTransaction('ReadAsset', assetKey);
-				checkAsset(org1, resultBuffer, 'blue', '10', 'Sam', '200');
-			} catch (readError) {
-				console.log(`${RED}<-- Failed: ReadAsset - ${readError}${RESET}`);
-			}
-
-			try {
-				// T R A N S F E R
-				console.log(`${GREEN}--> Submit Transaction: TransferAsset ${assetKey} to Mary`);
-				transaction = contract1Org1.createTransaction('TransferAsset');
-				await transaction.submit(assetKey, 'Mary');
-				console.log(`${GREEN}<-- Submit TransferAsset Result: committed, asset ${assetKey}${RESET}`);
-			} catch (transferError) {
-				console.log(`${RED}<-- Failed: TransferAsset - ${transferError}${RESET}`);
-			}
-			try {
-				// R E A D
-				console.log(`${GREEN}--> Evaluate: ReadAsset, - ${assetKey} should now be owned by Mary${RESET}`);
-				const resultBuffer = await contract1Org1.evaluateTransaction('ReadAsset', assetKey);
-				checkAsset(org1, resultBuffer, 'blue', '10', 'Mary', '200');
-			} catch (readError) {
-				console.log(`${RED}<-- Failed: ReadAsset - ${readError}${RESET}`);
-			}
-
-			try {
-				// D E L E T E
-				console.log(`${GREEN}--> Submit Transaction: DeleteAsset ${assetKey}`);
-				transaction = contract1Org1.createTransaction('DeleteAsset');
-				await transaction.submit(assetKey);
-				console.log(`${GREEN}<-- Submit DeleteAsset Result: committed, asset ${assetKey}${RESET}`);
-			} catch (deleteError) {
-				console.log(`${RED}<-- Failed: DeleteAsset - ${deleteError}${RESET}`);
-				if (deleteError.toString().includes('ENDORSEMENT_POLICY_FAILURE')) {
-					console.log(`${RED}Be sure that chaincode was deployed with the endorsement policy "OR('Org1MSP.peer','Org2MSP.peer')"${RESET}`)
-				}
-			}
-			try {
-				// R E A D
-				console.log(`${GREEN}--> Evaluate: ReadAsset, - ${assetKey} should now be deleted${RESET}`);
-				const resultBuffer = await contract1Org1.evaluateTransaction('ReadAsset', assetKey);
-				checkAsset(org1, resultBuffer, 'blue', '10', 'Mary', '200');
-				console.log(`${RED}<-- Failed: ReadAsset - should not have read this asset${RESET}`);
-			} catch (readError) {
-				console.log(`${GREEN}<-- Success: ReadAsset - ${readError}${RESET}`);
-			}
-
+      await sleep(5000);
 			// all done with this listener
-			contract1Org1.removeContractListener(listener);
-
-			//
-			//  - - - - - -  B L O C K  E V E N T S  with  P R I V A T E  D A T A
-			//
-			console.log(`${BLUE} **** BLOCK EVENTS with PRIVATE DATA ****${RESET}`);
-			const network2Org1 = await gateway2Org1.getNetwork(channelName);
-			const contract2Org1 = network2Org1.getContract(chaincodeName);
-
-			randomNumber = Math.floor(Math.random() * 1000) + 1;
-			assetKey = `item-${randomNumber}`;
-
-			let firstBlock = true; // simple indicator to track blocks
-
-			try {
-				let listener;
-
-				// create a block listener
-				listener = async (event) => {
-					if (firstBlock) {
-						console.log(`${GREEN}<-- Block Event Received - block number: ${event.blockNumber.toString()}` +
-							'\n### Note:' +
-							'\n    This block event represents the current top block of the ledger.' +
-							`\n    All block events after this one are events that represent new blocks added to the ledger${RESET}`);
-						firstBlock = false;
-					} else {
-						console.log(`${GREEN}<-- Block Event Received - block number: ${event.blockNumber.toString()}${RESET}`);
-					}
-					const transEvents = event.getTransactionEvents();
-					for (const transEvent of transEvents) {
-						console.log(`*** transaction event: ${transEvent.transactionId}`);
-						if (transEvent.privateData) {
-							for (const namespace of transEvent.privateData.ns_pvt_rwset) {
-								console.log(`    - private data: ${namespace.namespace}`);
-								for (const collection of namespace.collection_pvt_rwset) {
-									console.log(`     - collection: ${collection.collection_name}`);
-									if (collection.rwset.reads) {
-										for (const read of collection.rwset.reads) {
-											console.log(`       - read set - ${BLUE}key:${RESET} ${read.key}  ${BLUE}value:${read.value.toString()}`);
-										}
-									}
-									if (collection.rwset.writes) {
-										for (const write of collection.rwset.writes) {
-											console.log(`      - write set - ${BLUE}key:${RESET}${write.key} ${BLUE}is_delete:${RESET}${write.is_delete} ${BLUE}value:${RESET}${write.value.toString()}`);
-										}
-									}
-								}
-							}
-						}
-						if (transEvent.transactionData) {
-							showTransactionData(transEvent.transactionData);
-						}
-					}
-				};
-				// now start the client side event service and register the listener
-				console.log(`${GREEN}--> Start private data block event stream to peer in Org1${RESET}`);
-				await network2Org1.addBlockListener(listener, {type: 'private'});
-			} catch (eventError) {
-				console.log(`${RED}<-- Failed: Setup block events - ${eventError}${RESET}`);
-			}
-
-			try {
-				// C R E A T E
-				console.log(`${GREEN}--> Submit Transaction: CreateAsset, ${assetKey} owned by Sam${RESET}`);
-				transaction = contract2Org1.createTransaction('CreateAsset');
-
-				// create the private data with salt and assign to the transaction
-				const randomNumber = Math.floor(Math.random() * 100) + 1;
-				const asset_properties = {
-					object_type: 'asset_properties',
-					asset_id: assetKey,
-					Price: '90',
-					salt: Buffer.from(randomNumber.toString()).toString('hex')
-				};
-				const asset_properties_string = JSON.stringify(asset_properties);
-				transaction.setTransient({
-					asset_properties: Buffer.from(asset_properties_string)
-				});
-				// With the addition of private data to the transaction
-				// We must only send this to the organization that will be
-				// saving the private data or we will get an endorsement policy failure
-				transaction.setEndorsingOrganizations(org1);
-				// endorse and commit - private data (transient data) will be
-				// saved to the implicit collection on the peer
-				await transaction.submit(assetKey, 'blue', '10', 'Sam', '100');
-				console.log(`${GREEN}<-- Submit CreateAsset Result: committed, asset ${assetKey}${RESET}`);
-			} catch (createError) {
-				console.log(`${RED}<-- Failed: CreateAsset - ${createError}${RESET}`);
-			}
-			await sleep(5000); // need to wait for event to be committed
-			try {
-				// R E A D
-				console.log(`${GREEN}--> Evaluate: ReadAsset, - ${assetKey} should be owned by Sam${RESET}`);
-				const resultBuffer = await contract2Org1.evaluateTransaction('ReadAsset', assetKey);
-				checkAsset(org1, resultBuffer, 'blue', '10', 'Sam', '100', '90');
-			} catch (readError) {
-				console.log(`${RED}<-- Failed: ReadAsset - ${readError}${RESET}`);
-			}
-
-			try {
-				// U P D A T E
-				console.log(`${GREEN}--> Submit Transaction: UpdateAsset ${assetKey} update appraised value to 200`);
-				transaction = contract2Org1.createTransaction('UpdateAsset');
-
-				// update the private data with new salt and assign to the transaction
-				const randomNumber = Math.floor(Math.random() * 100) + 1;
-				const asset_properties = {
-					object_type: 'asset_properties',
-					asset_id: assetKey,
-					Price: '90',
-					salt: Buffer.from(randomNumber.toString()).toString('hex')
-				};
-				const asset_properties_string = JSON.stringify(asset_properties);
-				transaction.setTransient({
-					asset_properties: Buffer.from(asset_properties_string)
-				});
-				transaction.setEndorsingOrganizations(org1);
-
-				await transaction.submit(assetKey, 'blue', '10', 'Sam', '200');
-				console.log(`${GREEN}<-- Submit UpdateAsset Result: committed, asset ${assetKey}${RESET}`);
-			} catch (updateError) {
-				console.log(`${RED}<-- Failed: UpdateAsset - ${updateError}${RESET}`);
-			}
-			await sleep(5000); // need to wait for event to be committed
-			try {
-				// R E A D
-				console.log(`${GREEN}--> Evaluate: ReadAsset, - ${assetKey} should now have appraised value of 200${RESET}`);
-				const resultBuffer = await contract2Org1.evaluateTransaction('ReadAsset', assetKey);
-				checkAsset(org1, resultBuffer, 'blue', '10', 'Sam', '200', '90');
-			} catch (readError) {
-				console.log(`${RED}<-- Failed: ReadAsset - ${readError}${RESET}`);
-			}
-
-			try {
-				// T R A N S F E R
-				console.log(`${GREEN}--> Submit Transaction: TransferAsset ${assetKey} to Mary`);
-				transaction = contract2Org1.createTransaction('TransferAsset');
-
-				// update the private data with new salt and assign to the transaction
-				const randomNumber = Math.floor(Math.random() * 100) + 1;
-				const asset_properties = {
-					object_type: 'asset_properties',
-					asset_id: assetKey,
-					Price: '180',
-					salt: Buffer.from(randomNumber.toString()).toString('hex')
-				};
-				const asset_properties_string = JSON.stringify(asset_properties);
-				transaction.setTransient({
-					asset_properties: Buffer.from(asset_properties_string)
-				});
-				transaction.setEndorsingOrganizations(org1);
-
-				await transaction.submit(assetKey, 'Mary');
-				console.log(`${GREEN}<-- Submit TransferAsset Result: committed, asset ${assetKey}${RESET}`);
-			} catch (transferError) {
-				console.log(`${RED}<-- Failed: TransferAsset - ${transferError}${RESET}`);
-			}
-			await sleep(5000); // need to wait for event to be committed
-			try {
-				// R E A D
-				console.log(`${GREEN}--> Evaluate: ReadAsset, - ${assetKey} should now be owned by Mary${RESET}`);
-				const resultBuffer = await contract2Org1.evaluateTransaction('ReadAsset', assetKey);
-				checkAsset(org1, resultBuffer, 'blue', '10', 'Mary', '200', '180');
-			} catch (readError) {
-				console.log(`${RED}<-- Failed: ReadAsset - ${readError}${RESET}`);
-			}
-
-			try {
-				// D E L E T E
-				console.log(`${GREEN}--> Submit Transaction: DeleteAsset ${assetKey}`);
-				transaction = contract2Org1.createTransaction('DeleteAsset');
-				await transaction.submit(assetKey);
-				console.log(`${GREEN}<-- Submit DeleteAsset Result: committed, asset ${assetKey}${RESET}`);
-			} catch (deleteError) {
-				console.log(`${RED}<-- Failed: DeleteAsset - ${deleteError}${RESET}`);
-			}
-			await sleep(5000); // need to wait for event to be committed
-			try {
-				// R E A D
-				console.log(`${GREEN}--> Evaluate: ReadAsset, - ${assetKey} should now be deleted${RESET}`);
-				const resultBuffer = await contract2Org1.evaluateTransaction('ReadAsset', assetKey);
-				checkAsset(org1, resultBuffer, 'blue', '10', 'Mary', '200');
-				console.log(`${RED}<-- Failed: ReadAsset - should not have read this asset${RESET}`);
-			} catch (readError) {
-				console.log(`${GREEN}<-- Success: ReadAsset - ${readError}${RESET}`);
-			}
-
-			// all done with this listener
-			network2Org1.removeBlockListener(listener);
+			contract1Org1.removeContractListener(queryListener);
+      contract1Org1.removeContractListener(mainListener);
 
 		} catch (runError) {
 			console.error(`Error in transaction: ${runError}`);
@@ -538,7 +287,7 @@ async function main() {
 		process.exit(1);
 	}
 
-	await sleep(5000);
+  await sleep(5000);
 	console.log(`${BLUE} **** END ****${RESET}`);
 	process.exit(0);
 }
