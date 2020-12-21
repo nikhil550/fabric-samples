@@ -23,7 +23,7 @@ function prettyJSONString(inputString) {
     }
 }
 
-async function CreateAuction(ccp,wallet,user,auctionID,item,price) {
+async function queryAuctionRound(ccp,wallet,user,auctionID,round) {
     try {
 
         const gateway = new Gateway();
@@ -35,14 +35,8 @@ async function CreateAuction(ccp,wallet,user,auctionID,item,price) {
         const network = await gateway.getNetwork(myChannel);
         const contract = network.getContract(myChaincodeName);
 
-        let statefulTxn = contract.createTransaction('CreateAuction');
-
-        console.log('\n--> Submit Transaction: Propose a new auction');
-        await statefulTxn.submit(auctionID,item,parseInt(price));
-        console.log('*** Result: committed');
-
-        console.log('\n--> Evaluate Transaction: query the auction that was just created');
-        let result = await contract.evaluateTransaction('QueryAuction',auctionID);
+        console.log('\n--> Evaluate Transaction: query the auction');
+        let result = await contract.evaluateTransaction('QueryAuctionRound',auctionID,round);
         console.log('*** Result: Auction: ' + prettyJSONString(result.toString()));
 
         gateway.disconnect();
@@ -55,17 +49,15 @@ async function main() {
     try {
 
         if (process.argv[2] == undefined || process.argv[3] == undefined
-            || process.argv[4] == undefined || process.argv[5] == undefined
-            || process.argv[6] == undefined) {
-            console.log("Usage: node createAuction.js org userID auctionID item price");
+            || process.argv[4] == undefined) {
+            console.log("Usage: node queryAuctionRound.js org userID auctionID round");
             process.exit(1);
         }
 
-        const org = process.argv[2];
+        const org = process.argv[2]
         const user = process.argv[3];
         const auctionID = process.argv[4];
-        const item = process.argv[5];
-        const price = process.argv[6];
+        const round = process.argv[5];
 
         if (org == 'Org1' || org == 'org1') {
 
@@ -73,7 +65,7 @@ async function main() {
             const ccp = buildCCPOrg1();
             const walletPath = path.join(__dirname, 'wallet/org1');
             const wallet = await buildWallet(Wallets, walletPath);
-            await CreateAuction(ccp,wallet,user,auctionID,item,price);
+            await queryAuctionRound(ccp,wallet,user,auctionID,round);
         }
         else if (org == 'Org2' || org == 'org2') {
 
@@ -81,9 +73,9 @@ async function main() {
             const ccp = buildCCPOrg2();
             const walletPath = path.join(__dirname, 'wallet/org2');
             const wallet = await buildWallet(Wallets, walletPath);
-            await CreateAuction(ccp,wallet,user,auctionID,item,price);
+            await queryAuctionRound(ccp,wallet,user,round,auctionID,round);
         }  else {
-            console.log("Usage: node createAuction.js org userID auctionID item quantity");
+            console.log("Usage: node queryAuction.js org userID auctionID");
             console.log("Org must be Org1 or Org2");
           }
     } catch (error) {

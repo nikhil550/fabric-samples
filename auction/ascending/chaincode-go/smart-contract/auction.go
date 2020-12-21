@@ -83,10 +83,10 @@ func (s *SmartContract) CreateAuction(ctx contractapi.TransactionContextInterfac
 	bidders := make(map[string]Bidder)
 
 	// Check 1: check if there is an ask from your org that is lower than the reserve price
-//	err = queryAllAsks(ctx, reservePrice, itemSold, sellers)
-//	if err != nil {
-//		return fmt.Errorf("Cannot close auction: %v", err)
-//	}
+	err = queryAllAsks(ctx, reservePrice, itemSold, sellers)
+	if err != nil {
+		return fmt.Errorf("Cannot close auction: %v", err)
+	}
 
 	// Create auction
 
@@ -109,13 +109,13 @@ func (s *SmartContract) CreateAuction(ctx contractapi.TransactionContextInterfac
 	}
 
 	// create a composite key using the round
-	//auctionKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(auction.Round)})
-	//if err != nil {
-	//	return fmt.Errorf("failed to create composite key: %v", err)
-	//}
+	auctionKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(auction.Round)})
+	if err != nil {
+		return fmt.Errorf("failed to create composite key: %v", err)
+	}
 
 	// put auction into state
-	err = ctx.GetStub().PutState(auctionID, auctionBytes)
+	err = ctx.GetStub().PutState(auctionKey, auctionBytes)
 	if err != nil {
 		return fmt.Errorf("failed to put auction in public data: %v", err)
 	}
@@ -139,13 +139,10 @@ func (s *SmartContract) CreateNewRound(ctx contractapi.TransactionContextInterfa
 	// check 1: was there a previous round
 
 	previousRound := newRound - 1
-	if previousRound < 0 {
-		return fmt.Errorf("no previous round")
-	}
 
 	auction, err := s.QueryAuctionRound(ctx, auctionID, previousRound)
 	if err != nil {
-		return err
+		return fmt.Errorf("Cannot create round until previous round is created")
 	}
 
 	// check 2: confirm that Demand > Supply for the previous round before creating a new round
@@ -231,26 +228,24 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 	}
 
 	previousRound := round - 1
-	if previousRound < 0 {
-		return fmt.Errorf("no previous round")
+
+	if previousRound != 0 {
+
+		auctionLastRound, err := s.QueryAuctionRound(ctx, auctionID, previousRound)
+		if err != nil {
+			return err
+		}
+
+		previousBidders := make(map[string]Bidder)
+		previousBidders = auctionLastRound.Bidders
+
+		if _, previousBid := previousBidders[bidKey]; previousBid {
+
+			//bid is in the previous auction, no action to take
+		} else {
+				return fmt.Errorf("bidder needs to have joined previous round")
+		}
 	}
-
-	auctionLastRound, err := s.QueryAuctionRound(ctx, auctionID, previousRound)
-	if err != nil {
-		return err
-	}
-
-	previousBidders := make(map[string]Bidder)
-	previousBidders = auctionLastRound.Bidders
-
-	if _, previousBid := previousBidders[bidKey]; previousBid {
-
-		//bid is in the previous auction, no action to take
-
-	} else {
-		return fmt.Errorf("bidder needs to have joined previous round")
-	}
-
 	// create new bid
 
 	NewBidder := Bidder{
@@ -272,12 +267,15 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 		for _, bidder := range bidders {
 			bidder.Won = bidder.Quantity
 		}
-	} else {
+	} else if auction.Quantity == 0 {
+		for _, bidder := range bidders {
+			bidder.Won = 0
+		}
+	}	else {
 		for _, bidder := range bidders {
 			bidder.Won = (bidder.Quantity * auction.Demand) / auction.Quantity
 		}
 	}
-
 	auction.Bidders = bidders
 
 	// create a composite for auction using the round
@@ -346,12 +344,30 @@ func (s *SmartContract) SubmitAsk(ctx contractapi.TransactionContextInterface, a
 		return fmt.Errorf("failed to create composite key: %v", err)
 	}
 
+	// add to the list of sellers
 	sellers := make(map[string]Seller)
 	sellers = auction.Sellers
 	sellers[askKey] = NewSeller
 	auction.Sellers = sellers
 
 	auction.Quantity = auction.Quantity + NewSeller.Quantity
+
+	// Update the list of winners
+
+	bidders := make(map[string]Bidder)
+	bidders = auction.Bidders
+
+	if auction.Demand < auction.Quantity {
+		for _, bidder := range bidders {
+			bidder.Won = bidder.Quantity
+		}
+	}	else {
+		for _, bidder := range bidders {
+			bidder.Won = (bidder.Quantity * auction.Demand) / auction.Quantity
+		}
+	}
+
+	auction.Bidders = bidders
 
 	// create a composite for auction using the round
 	auctionKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(round)})
