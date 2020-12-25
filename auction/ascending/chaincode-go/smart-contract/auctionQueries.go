@@ -74,11 +74,6 @@ func (s *SmartContract) QueryBid(ctx contractapi.TransactionContextInterface, it
 		return nil, fmt.Errorf("failed to get implicit collection name: %v", err)
 	}
 
-	clientID, err := ctx.GetClientIdentity().GetID()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get client identity %v", err)
-	}
-
 	collection, err := getCollectionName(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get implicit collection name: %v", err)
@@ -87,6 +82,11 @@ func (s *SmartContract) QueryBid(ctx contractapi.TransactionContextInterface, it
 	bidKey, err := ctx.GetStub().CreateCompositeKey(bidKeyType, []string{item, txID})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create composite key: %v", err)
+	}
+
+	err = s.checkBidOwner(ctx, collection, bidKey)
+	if err != nil {
+		return nil, err
 	}
 
 	bidJSON, err := ctx.GetStub().GetPrivateData(collection, bidKey)
@@ -103,11 +103,6 @@ func (s *SmartContract) QueryBid(ctx contractapi.TransactionContextInterface, it
 		return nil, err
 	}
 
-	// check that the client querying the bid is the bid owner
-	if bid.Buyer != clientID {
-		return nil, fmt.Errorf("Permission denied, client id %v is not the owner of the bid", clientID)
-	}
-
 	return bid, nil
 }
 
@@ -117,11 +112,6 @@ func (s *SmartContract) QueryAsk(ctx contractapi.TransactionContextInterface, it
 	err := verifyClientOrgMatchesPeerOrg(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get implicit collection name: %v", err)
-	}
-
-	clientID, err := ctx.GetClientIdentity().GetID()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get client identity %v", err)
 	}
 
 	collection, err := getCollectionName(ctx)
@@ -134,23 +124,23 @@ func (s *SmartContract) QueryAsk(ctx contractapi.TransactionContextInterface, it
 		return nil, fmt.Errorf("failed to create composite key: %v", err)
 	}
 
+	err = s.checkAskOwner(ctx, collection, askKey)
+	if err != nil {
+		return nil, err
+	}
+
 	askJSON, err := ctx.GetStub().GetPrivateData(collection, askKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get bid %v: %v", askKey, err)
 	}
 	if askJSON == nil {
-		return nil, fmt.Errorf("bid %v does not exist", askKey)
+		return nil, fmt.Errorf("ask %v does not exist", askKey)
 	}
 
 	var ask *Ask
 	err = json.Unmarshal(askJSON, &ask)
 	if err != nil {
 		return nil, err
-	}
-
-	// check that the client querying the bid is the bid owner
-	if ask.Seller != clientID {
-		return nil, fmt.Errorf("Permission denied, client id %v is not the seller", clientID)
 	}
 
 	return ask, nil
@@ -213,7 +203,7 @@ func queryAllBids(ctx contractapi.TransactionContextInterface, auctionPrice int,
 					return err
 				}
 
-				if bid.Price > auctionPrice {
+				if bid.Price >= auctionPrice {
 					error = fmt.Errorf("Cannot close auction round, bidder has a higher price: %v", err)
 				}
 
@@ -281,7 +271,7 @@ func queryAllAsks(ctx contractapi.TransactionContextInterface, auctionPrice int,
 					return fmt.Errorf("failed to get bid %v: %v", askKey, err)
 				}
 				if askJSON == nil {
-					return fmt.Errorf("bid %v does not exist", askKey)
+					return fmt.Errorf("ask %v does not exist", askKey)
 				}
 
 				var ask *Ask
@@ -290,8 +280,8 @@ func queryAllAsks(ctx contractapi.TransactionContextInterface, auctionPrice int,
 					return err
 				}
 
-				if ask.Price < auctionPrice {
-					error = fmt.Errorf("Cannot create new auction round, seller has a lower price: %v", err)
+				if ask.Price <= auctionPrice {
+					error = fmt.Errorf("Cannot close auction round, seller has a higher price: %v", err)
 				}
 
 			} else {
@@ -311,7 +301,7 @@ func queryAllAsks(ctx contractapi.TransactionContextInterface, auctionPrice int,
 }
 
 // QueryPublicAsk you to read a bid or ask on the public order book
-func (s *SmartContract) QueryPublicAsk(ctx contractapi.TransactionContextInterface, item string, askSell string, txID string) (*BidAskHash, error) {
+func (s *SmartContract) QueryPublic(ctx contractapi.TransactionContextInterface, item string, askSell string, txID string) (*BidAskHash, error) {
 
 	bidAskKey, err := ctx.GetStub().CreateCompositeKey(askSell, []string{item, txID})
 	if err != nil {
@@ -333,16 +323,4 @@ func (s *SmartContract) QueryPublicAsk(ctx contractapi.TransactionContextInterfa
 	}
 
 	return hash, nil
-}
-
-// GetID is an  helper function to allow users to get their identity
-func (s *SmartContract) GetID(ctx contractapi.TransactionContextInterface) (string, error) {
-
-	// Get the MSP ID of submitting client identity
-	clientID, err := ctx.GetClientIdentity().GetID()
-	if err != nil {
-		return "", fmt.Errorf("failed to get verified MSPID: %v", err)
-	}
-
-	return clientID, nil
 }

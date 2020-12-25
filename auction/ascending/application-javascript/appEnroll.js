@@ -1,14 +1,11 @@
 
 'use strict';
 
-const { Gateway, Wallets } = require('fabric-network');
+const { Wallets } = require('fabric-network');
 const FabricCAServices = require('fabric-ca-client');
 const path = require('path');
 const { buildCCPOrg1, buildCCPOrg2, buildWallet } = require('../../../test-application/javascript/AppUtil.js');
 const { buildCAClient, registerAndEnrollUser, enrollAdmin } = require('../../../test-application/javascript/CAUtil.js');
-
-const myChannel = 'mychannel';
-const myChaincodeName = 'auction';
 
 const mspOrg1 = 'Org1MSP';
 const mspOrg2 = 'Org2MSP';

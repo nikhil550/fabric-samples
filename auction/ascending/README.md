@@ -76,12 +76,12 @@ node bid.js org1 bidder1 tickets 20 20
 
 The `bid.js` application also prints the bidID:
 ```
-*** Result ***SAVE THIS VALUE*** BidID: b38ef6a2a0ef0d15df5937331081e52d46f5d3aa75c652eec7e9185ff487eee0
+*** Result ***SAVE THIS VALUE*** BidID: 4aacf2c25c09abfece161a593f0db9760ddee89539fc46a64f6829a07df514da
 ```
 
 The BidID acts as the unique identifier for the bid. This ID allows you to query the bid using the `queryBid.js` program and add the bid to the auction. Save the bidID returned by the application as an environment variable in your terminal:
 ```
-export BIDDER1_BID_ID=b38ef6a2a0ef0d15df5937331081e52d46f5d3aa75c652eec7e9185ff487eee0
+export BIDDER1_BID_ID=deca8ada788320d0b8a6f1ad41da148c8358b9236e5d6e6aa62d41a2f4c7b9b6
 ```
 
 ### Bid as bidder2
@@ -93,7 +93,7 @@ node bid.js org1 bidder2 tickets 20 40
 
 Save the Bid ID returned by the application:
 ```
-export BIDDER2_BID_ID=0bdf27e7107dab731dcffebf38163c3008ff61aad0ab864f36ae2f3cb7384a7d
+export BIDDER2_BID_ID=ad0c35265bd825ead7fdc8f76493a497aff2fb6d4dfc4646efe4281edd33a9fe
 ```
 
 
@@ -106,7 +106,7 @@ node bid.js org2 bidder3 tickets 20 60
 
 Save the Bid ID returned by the application:
 ```
-export BIDDER3_BID_ID=c461e2df48e71d2f2376d6fe0fe512e207af8388280b9ad578f693425ec25b21
+export BIDDER3_BID_ID=b7f76d2c601f684e489322ba1bd84ac2ca21e23ecb7db2e0e0b1f9560f0de87e
 ```
 
 
@@ -119,7 +119,7 @@ node bid.js org2 bidder4 tickets 20 80
 
 Save the Bid ID returned by the application:
 ```
-export BIDDER4_BID_ID=7dab4e516eda9898b7290a79e841dc4c12d946ae76261bba37241347c6ca2dc7
+export BIDDER4_BID_ID=064fe070ed48d9f31418598ce5a17ecea6e5c41b6f639251552c9bfcfa33c4c1
 ```
 
 
@@ -132,7 +132,7 @@ node bid.js org2 bidder5 tickets 20 100
 
 Save the Bid ID returned by the application:
 ```
-export BIDDER5_BID_ID=604e8ccbd764687143ccf3312dd135d95914bed3e59a3235b14b3b6574fc63e9
+export BIDDER5_BID_ID=ed51787bb9f57152ac745c0b81ce7354390c4df7de62a0292de0b7e299f61b7d
 ```
 
 ### Ask as seller1
@@ -144,12 +144,12 @@ node ask.js org1 seller1 tickets 20 30
 
 The `ask.js` application also prints the bidID:
 ```
-*** Result ***SAVE THIS VALUE*** BidID: 8158c009c109610ae457ebd082b512abcb002944ce7909896d10e2396a0a4903
+*** Result ***SAVE THIS VALUE*** AskID: 7bcecbeb3063214462e2a59a442d272eb97ebf03b51d5dfe06f2fd67db110eae
 ```
 
 The BidID acts as the unique identifier for the bid. This ID allows you to query the bid using the `queryBid.js` program and add the bid to the auction. Save the bidID returned by the application as an environment variable in your terminal:
 ```
-export SELLER1_BID_ID=8158c009c109610ae457ebd082b512abcb002944ce7909896d10e2396a0a4903
+export SELLER1_BID_ID=7bcecbeb3063214462e2a59a442d272eb97ebf03b51d5dfe06f2fd67db110eae
 ```
 
 ### Ask as seller2
@@ -161,7 +161,7 @@ node ask.js org1 seller2 tickets 20 50
 
 Save the Bid ID returned by the application:
 ```
-export SELLER2_BID_ID=c5002120f2725d228840b733608597e90708ebeeeed53c0aa0a39d37032cd783
+export SELLER2_BID_ID=de32f14f01ed9795f2897fd8033ef76518318e709576bcc0c913e13c6eff940d
 ```
 
 
@@ -174,7 +174,7 @@ node ask.js org2 bidder3 tickets 20 70
 
 Save the Bid ID returned by the application:
 ```
-export SELLER3_BID_ID=a00cdf3c450f0aa7b7535bc9d6c9ba3d043cad0435a4d46a3fe862875642621e
+export SELLER3_BID_ID=abe5dbf66b76ef40d0556830382120f4e9a55a98cb7530e051a2bc2a8a1816fa
 ```
 
 
@@ -187,56 +187,47 @@ node ask.js org2 bidder4 tickets 20 90
 
 Save the Bid ID returned by the application:
 ```
-export SELLER4_BID_ID=5d2de7d18c39c01268d37d8e18b4f99d81f3b16b60234b1925fc792bf147a0b6
+export SELLER4_BID_ID=8fd985f6c4ef8f65546747e1eb16fac754ad3403d4ffca5643508d0d1e08fdcd
 ```
 
 ## Just the bids
 
 ```
-export BIDDER1_BID_ID=b38ef6a2a0ef0d15df5937331081e52d46f5d3aa75c652eec7e9185ff487eee0
-```
-```
-export BIDDER2_BID_ID=b38ef6a2a0ef0d15df5937331081e52d46f5d3aa75c652eec7e9185ff487eee0
-```
-```
-export BIDDER3_BID_ID=b38ef6a2a0ef0d15df5937331081e52d46f5d3aa75c652eec7e9185ff487eee0
-```
-```
-export BIDDER4_BID_ID=b38ef6a2a0ef0d15df5937331081e52d46f5d3aa75c652eec7e9185ff487eee0
-```
-```
-export BIDDER5_BID_ID=b38ef6a2a0ef0d15df5937331081e52d46f5d3aa75c652eec7e9185ff487eee0
-```
-
-```
-export SELLER1_BID_ID=5d2de7d18c39c01268d37d8e18b4f99d81f3b16b60234b1925fc792bf147a0b6
-```
-```
-export SELLER2_BID_ID=5d2de7d18c39c01268d37d8e18b4f99d81f3b16b60234b1925fc792bf147a0b6
-```
-```
-export SELLER3_BID_ID=5d2de7d18c39c01268d37d8e18b4f99d81f3b16b60234b1925fc792bf147a0b6
-```
-```
-export SELLER4_BID_ID=5d2de7d18c39c01268d37d8e18b4f99d81f3b16b60234b1925fc792bf147a0b6
+export BIDDER1_BID_ID=5ed93b135bc45b598ecc63454a07efc419fc5249dab2c1bb86dc12726dbdb39b
+export BIDDER2_BID_ID=1a856cdaba5d3ddcbaacd8d2eb5da9821f258e9112701f4a46c250371d34b3be
+export BIDDER3_BID_ID=c9a72019cd0f047aa3db2a5f92f4d47cf2664bc50acbbda5b816022d559dd899
+export BIDDER4_BID_ID=9a1b7f97441fbeebb9ac52ba31ffda3d114f03dc8493db187dfdda275d8944e8
+export BIDDER5_BID_ID=49b8b5d9a55f22fc9c761bc2d86500a1cf734e46456528f8a2d998e0c1c9d767
+export SELLER1_BID_ID=fd5d12bfb60f27ad5615a05ed84d7b1bd204043b1bbce49361608e67cdf4f195
+export SELLER2_BID_ID=335ff48009a13ec2fd7d28955b587c40f01ad31042f4026ee55b80971f3ccd96
+export SELLER3_BID_ID=957cd913b9ecb9f5c54ac33391d60db80a632376dcdf13ba509a532f65e79150
+export SELLER4_BID_ID=86cbe68a1ce315ce15fa4cda41b3bf02d4681aeefb9f0e2b2bc6a278a5fe1688
 ```
 
 ## Create the auction
 
-The seller from Org1 would like to create an auction to sell 100 tickets. Run the following command to use the seller wallet to run the `createAuction.js` application. The seller needs to provide an ID for the auction, the item to be sold, and the quantity to be sold to create the auction:
+
 ```
-node createAuction.js org1 seller1 auction1 tickets 40
+node createAuction.js org1 seller1 auction1 tickets 30
 ```
 
-You will see the application query the auction after it is created.
+## Create auction round
 
 ```
 node createNewRound.js org1 seller1 auction1 1 30
 ```
 
-submit bid
+## add bids and asks
+
+
 ```
-node submitBid.js org1 bidder1 auction1 $BIDDER1_BID_ID
+node submitBid.js org1 bidder1 auction1 0 20 $BIDDER1_BID_ID
+```
+
+
+
+```
+node submitAsk.js org1 seller1 auction1 0 20 $SELLER1_BID_ID
 ```
 
 The hash of bid is added to the list of private bids in that have been submitted to `auction1`. Storing the hash on the public auction ledger allows users to prove the accuracy of the bids they reveal once bidding is closed. The application queries the auction to verify that the bid was added:
@@ -344,52 +335,6 @@ node revealBid.js org1 bidder1 auction1 $BIDDER1_BID_ID
 ```
 
 The full bid details, including the quantity and price, are now visible:
-```
-*** Result: Auction: {
-  "objectType": "auction",
-  "item": "tickets",
-  "seller": "eDUwOTo6Q049c2VsbGVyLE9VPWNsaWVudCtPVT1vcmcxK09VPWRlcGFydG1lbnQxOjpDTj1jYS5vcmcxLmV4YW1wbGUuY29tLE89b3JnMS5leGFtcGxlLmNvbSxMPUR1cmhhbSxTVD1Ob3J0aCBDYXJvbGluYSxDPVVT",
-  "quantity": 100,
-  "organizations": [
-    "Org1MSP",
-    "Org2MSP"
-  ],
-  "privateBids": {
-    "\u0000bid\u0000auction1\u00003245049bd81a8cecfbc006f29eed1df0570e385e63daedd19c06b2c92d2067ae\u0000": {
-      "org": "Org2MSP",
-      "hash": "5a51070f188e6480fe606acdc5ad1a1c36330adc3547eb021aaf87aa00ec79f7"
-    },
-    "\u0000bid\u0000auction1\u0000324de04c459c5a38f103e9096dea06e19faca88f84dd5175ba0e6fd6a9d7d140\u0000": {
-      "org": "Org2MSP",
-      "hash": "516c775f7da2fd653dab71d20d60a6e8bea8ff856803af4b59f943ca2ba40699"
-    },
-    "\u0000bid\u0000auction1\u000061e9b0fc1913f10872625bea4a6555522c70070416209848cc1d8fb6101133ad\u0000": {
-      "org": "Org1MSP",
-      "hash": "584dbad2269a44afb42bdbc7a7a4c08a7cd50deece1eb3fc38d4e49b9342f270"
-    },
-    "\u0000bid\u0000auction1\u0000911c7920a7ba4643a531cb2d5d274d303fdb2e6800f50aeb6b725af0b7162ea2\u0000": {
-      "org": "Org1MSP",
-      "hash": "bbcd0c7c376e6681a76d8c5482c97f8bdcda55c90c5478100c3aef17815c4fd3"
-    },
-    "\u0000bid\u0000auction1\u000093a8164628fa28290554b5dc6f505cbb8c7498d8f7c60f7df33d4a1cffb8fa47\u0000": {
-      "org": "Org2MSP",
-      "hash": "4446c7eb0e2d64165a916ee996348a18716f4c97e632d58d5a8c20eeec5a9238"
-    }
-  },
-  "revealedBids": {
-    "\u0000bid\u0000auction1\u000061e9b0fc1913f10872625bea4a6555522c70070416209848cc1d8fb6101133ad\u0000": {
-      "objectType": "bid",
-      "quantity": 50,
-      "price": 80,
-      "org": "Org1MSP",
-      "buyer": "eDUwOTo6Q049YmlkZGVyMSxPVT1jbGllbnQrT1U9b3JnMStPVT1kZXBhcnRtZW50MTo6Q049Y2Eub3JnMS5leGFtcGxlLmNvbSxPPW9yZzEuZXhhbXBsZS5jb20sTD1EdXJoYW0sU1Q9Tm9ydGggQ2Fyb2xpbmEsQz1VUw=="
-    }
-  },
-  "winners": [],
-  "price": 0,
-  "status": "closed"
-}
-```
 
 All bidders will reveal their bid to participate in the auction. Run the following commands to reveal the bids of the remaining four bidders:
 ```
@@ -409,108 +354,6 @@ node endAuction org1 seller auction1
 The transaction was successfully endorsed by both Org1 and Org2, who both calculated the same price and winners of the auction. Each winning bidder is listed next to the quantity that was allocated to them.
 
 ```
-*** Result: Auction: {
-  "objectType": "auction",
-  "item": "tickets",
-  "seller": "eDUwOTo6Q049c2VsbGVyLE9VPWNsaWVudCtPVT1vcmcxK09VPWRlcGFydG1lbnQxOjpDTj1jYS5vcmcxLmV4YW1wbGUuY29tLE89b3JnMS5leGFtcGxlLmNvbSxMPUR1cmhhbSxTVD1Ob3J0aCBDYXJvbGluYSxDPVVT",
-  "quantity": 100,
-  "organizations": [
-    "Org1MSP",
-    "Org2MSP"
-  ],
-  "privateBids": {
-    "\u0000bid\u0000auction1\u00003245049bd81a8cecfbc006f29eed1df0570e385e63daedd19c06b2c92d2067ae\u0000": {
-      "org": "Org2MSP",
-      "hash": "5a51070f188e6480fe606acdc5ad1a1c36330adc3547eb021aaf87aa00ec79f7"
-    },
-    "\u0000bid\u0000auction1\u0000324de04c459c5a38f103e9096dea06e19faca88f84dd5175ba0e6fd6a9d7d140\u0000": {
-      "org": "Org2MSP",
-      "hash": "516c775f7da2fd653dab71d20d60a6e8bea8ff856803af4b59f943ca2ba40699"
-    },
-    "\u0000bid\u0000auction1\u000061e9b0fc1913f10872625bea4a6555522c70070416209848cc1d8fb6101133ad\u0000": {
-      "org": "Org1MSP",
-      "hash": "584dbad2269a44afb42bdbc7a7a4c08a7cd50deece1eb3fc38d4e49b9342f270"
-    },
-    "\u0000bid\u0000auction1\u0000911c7920a7ba4643a531cb2d5d274d303fdb2e6800f50aeb6b725af0b7162ea2\u0000": {
-      "org": "Org1MSP",
-      "hash": "bbcd0c7c376e6681a76d8c5482c97f8bdcda55c90c5478100c3aef17815c4fd3"
-    },
-    "\u0000bid\u0000auction1\u000093a8164628fa28290554b5dc6f505cbb8c7498d8f7c60f7df33d4a1cffb8fa47\u0000": {
-      "org": "Org2MSP",
-      "hash": "4446c7eb0e2d64165a916ee996348a18716f4c97e632d58d5a8c20eeec5a9238"
-    }
-  },
-  "revealedBids": {
-    "\u0000bid\u0000auction1\u00003245049bd81a8cecfbc006f29eed1df0570e385e63daedd19c06b2c92d2067ae\u0000": {
-      "objectType": "bid",
-      "quantity": 20,
-      "price": 60,
-      "org": "Org2MSP",
-      "buyer": "eDUwOTo6Q049YmlkZGVyNCxPVT1jbGllbnQrT1U9b3JnMitPVT1kZXBhcnRtZW50MTo6Q049Y2Eub3JnMi5leGFtcGxlLmNvbSxPPW9yZzIuZXhhbXBsZS5jb20sTD1IdXJzbGV5LFNUPUhhbXBzaGlyZSxDPVVL"
-    },
-    "\u0000bid\u0000auction1\u0000324de04c459c5a38f103e9096dea06e19faca88f84dd5175ba0e6fd6a9d7d140\u0000": {
-      "objectType": "bid",
-      "quantity": 15,
-      "price": 60,
-      "org": "Org2MSP",
-      "buyer": "eDUwOTo6Q049YmlkZGVyNCxPVT1jbGllbnQrT1U9b3JnMitPVT1kZXBhcnRtZW50MTo6Q049Y2Eub3JnMi5leGFtcGxlLmNvbSxPPW9yZzIuZXhhbXBsZS5jb20sTD1IdXJzbGV5LFNUPUhhbXBzaGlyZSxDPVVL"
-    },
-    "\u0000bid\u0000auction1\u000061e9b0fc1913f10872625bea4a6555522c70070416209848cc1d8fb6101133ad\u0000": {
-      "objectType": "bid",
-      "quantity": 50,
-      "price": 80,
-      "org": "Org1MSP",
-      "buyer": "eDUwOTo6Q049YmlkZGVyMSxPVT1jbGllbnQrT1U9b3JnMStPVT1kZXBhcnRtZW50MTo6Q049Y2Eub3JnMS5leGFtcGxlLmNvbSxPPW9yZzEuZXhhbXBsZS5jb20sTD1EdXJoYW0sU1Q9Tm9ydGggQ2Fyb2xpbmEsQz1VUw=="
-    },
-    "\u0000bid\u0000auction1\u0000911c7920a7ba4643a531cb2d5d274d303fdb2e6800f50aeb6b725af0b7162ea2\u0000": {
-      "objectType": "bid",
-      "quantity": 40,
-      "price": 50,
-      "org": "Org1MSP",
-      "buyer": "eDUwOTo6Q049YmlkZGVyMixPVT1jbGllbnQrT1U9b3JnMStPVT1kZXBhcnRtZW50MTo6Q049Y2Eub3JnMS5leGFtcGxlLmNvbSxPPW9yZzEuZXhhbXBsZS5jb20sTD1EdXJoYW0sU1Q9Tm9ydGggQ2Fyb2xpbmEsQz1VUw=="
-    },
-    "\u0000bid\u0000auction1\u000093a8164628fa28290554b5dc6f505cbb8c7498d8f7c60f7df33d4a1cffb8fa47\u0000": {
-      "objectType": "bid",
-      "quantity": 30,
-      "price": 70,
-      "org": "Org2MSP",
-      "buyer": "eDUwOTo6Q049YmlkZGVyMyxPVT1jbGllbnQrT1U9b3JnMitPVT1kZXBhcnRtZW50MTo6Q049Y2Eub3JnMi5leGFtcGxlLmNvbSxPPW9yZzIuZXhhbXBsZS5jb20sTD1IdXJzbGV5LFNUPUhhbXBzaGlyZSxDPVVL"
-    }
-  },
-  "winners": [
-    {
-      "buyer": "eDUwOTo6Q049YmlkZGVyMSxPVT1jbGllbnQrT1U9b3JnMStPVT1kZXBhcnRtZW50MTo6Q049Y2Eub3JnMS5leGFtcGxlLmNvbSxPPW9yZzEuZXhhbXBsZS5jb20sTD1EdXJoYW0sU1Q9Tm9ydGggQ2Fyb2xpbmEsQz1VUw==",
-      "quantity": 50
-    },
-    {
-      "buyer": "eDUwOTo6Q049YmlkZGVyMyxPVT1jbGllbnQrT1U9b3JnMitPVT1kZXBhcnRtZW50MTo6Q049Y2Eub3JnMi5leGFtcGxlLmNvbSxPPW9yZzIuZXhhbXBsZS5jb20sTD1IdXJzbGV5LFNUPUhhbXBzaGlyZSxDPVVL",
-      "quantity": 30
-    },
-    {
-      "buyer": "eDUwOTo6Q049YmlkZGVyNCxPVT1jbGllbnQrT1U9b3JnMitPVT1kZXBhcnRtZW50MTo6Q049Y2Eub3JnMi5leGFtcGxlLmNvbSxPPW9yZzIuZXhhbXBsZS5jb20sTD1IdXJzbGV5LFNUPUhhbXBzaGlyZSxDPVVL",
-      "quantity": 15
-    },
-    {
-      "buyer": "eDUwOTo6Q049YmlkZGVyNCxPVT1jbGllbnQrT1U9b3JnMitPVT1kZXBhcnRtZW50MTo6Q049Y2Eub3JnMi5leGFtcGxlLmNvbSxPPW9yZzIuZXhhbXBsZS5jb20sTD1IdXJzbGV5LFNUPUhhbXBzaGlyZSxDPVVL",
-      "quantity": 5
-    }
-  ],
-  "price": 60,
-  "status": "ended"
-}
 ```
 
 The auction allocates tickets to the highest bids first. Because all 100 tickets are sold after allocating tickets to the bids that were submitted at 60, 60 is the `"price"` that clears the auction. The first 80 tickets are allocated to Bidder1 and Bidder3. The remaining 20 tickers are allocated to Bidder4 and Bidder5. When bids are tied, the auction smart contract fills the smaller bids first. As a result, Bidder4 is awarded their full bid of 15 tickets, while Bidder5 is allocated the remaining 5 tickets.
-
-## Clean up
-
-When your are done using the auction smart contract, you can bring down the network and clean up the environment. In the `auction/application-javascript` directory, run the following command to remove the wallets used to run the applications:
-```
-rm -rf wallet
-```
-
-You can then navigate to the test network directory and bring down the network:
-````
-cd ../../../test-network/
-./network.sh down
-````

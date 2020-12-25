@@ -5,63 +5,25 @@ SPDX-License-Identifier: Apache-2.0
 package auction
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 
-	"github.com/hyperledger/fabric-chaincode-go/pkg/statebased"
 	"github.com/hyperledger/fabric-chaincode-go/shim"
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
 
-// setAssetStateBasedEndorsement sets the endorsement policy of a new auction
-func setAssetStateBasedEndorsement(ctx contractapi.TransactionContextInterface, auctionID string, orgToEndorse string) error {
+func (s *SmartContract) GetSubmittingClientIdentity(ctx contractapi.TransactionContextInterface) (string, error) {
 
-	endorsementPolicy, err := statebased.NewStateEP(nil)
+	b64ID, err := ctx.GetClientIdentity().GetID()
 	if err != nil {
-		return err
+		return "", fmt.Errorf("Failed to read clientID: %v", err)
 	}
-	err = endorsementPolicy.AddOrgs(statebased.RoleTypePeer, orgToEndorse)
+	decodeID, err := base64.StdEncoding.DecodeString(b64ID)
 	if err != nil {
-		return fmt.Errorf("failed to add org to endorsement policy: %v", err)
+		return "", fmt.Errorf("failed to base64 decode clientID: %v", err)
 	}
-	policy, err := endorsementPolicy.Policy()
-	if err != nil {
-		return fmt.Errorf("failed to create endorsement policy bytes from org: %v", err)
-	}
-	err = ctx.GetStub().SetStateValidationParameter(auctionID, policy)
-	if err != nil {
-		return fmt.Errorf("failed to set validation parameter on auction: %v", err)
-	}
-
-	return nil
-}
-
-// addAssetStateBasedEndorsement adds a new organization as an endorser of the auction
-func addAssetStateBasedEndorsement(ctx contractapi.TransactionContextInterface, auctionID string, orgToEndorse string) error {
-
-	endorsementPolicy, err := ctx.GetStub().GetStateValidationParameter(auctionID)
-	if err != nil {
-		return err
-	}
-
-	newEndorsementPolicy, err := statebased.NewStateEP(endorsementPolicy)
-	if err != nil {
-		return err
-	}
-
-	err = newEndorsementPolicy.AddOrgs(statebased.RoleTypePeer, orgToEndorse)
-	if err != nil {
-		return fmt.Errorf("failed to add org to endorsement policy: %v", err)
-	}
-	policy, err := newEndorsementPolicy.Policy()
-	if err != nil {
-		return fmt.Errorf("failed to create endorsement policy bytes from org: %v", err)
-	}
-	err = ctx.GetStub().SetStateValidationParameter(auctionID, policy)
-	if err != nil {
-		return fmt.Errorf("failed to set validation parameter on auction: %v", err)
-	}
-
-	return nil
+	return string(decodeID), nil
 }
 
 // getCollectionName is an internal helper function to get collection of submitting client identity.
@@ -97,11 +59,64 @@ func verifyClientOrgMatchesPeerOrg(ctx contractapi.TransactionContextInterface) 
 	return nil
 }
 
-func contains(sli []string, str string) bool {
-	for _, a := range sli {
-		if a == str {
-			return true
-		}
+// checkBidOwner returns an error if a client who is not the bid owner
+// tries to query a bid
+func (s *SmartContract) checkBidOwner(ctx contractapi.TransactionContextInterface, collection string, bidKey string) error {
+
+	clientID, err := s.GetSubmittingClientIdentity(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get client identity %v", err)
 	}
-	return false
+
+	bidJSON, err := ctx.GetStub().GetPrivateData(collection, bidKey)
+	if err != nil {
+		return fmt.Errorf("failed to get bid %v: %v", bidKey, err)
+	}
+	if bidJSON == nil {
+		return fmt.Errorf("bid %v does not exist", bidKey)
+	}
+
+	var bid *Bid
+	err = json.Unmarshal(bidJSON, &bid)
+	if err != nil {
+		return err
+	}
+
+	// check that the client querying the bid is the bid owner
+	if bid.Buyer != clientID {
+		return fmt.Errorf("Permission denied, client id %v is not the owner of the bid", clientID)
+	}
+
+	return nil
+}
+
+// checkAskOwner returns an error if a client who is not the bid owner
+// tries to query a bid
+func (s *SmartContract) checkAskOwner(ctx contractapi.TransactionContextInterface, collection string, askKey string) error {
+
+	clientID, err := s.GetSubmittingClientIdentity(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get client identity %v", err)
+	}
+
+	askJSON, err := ctx.GetStub().GetPrivateData(collection, askKey)
+	if err != nil {
+		return fmt.Errorf("failed to get ask %v: %v", askKey, err)
+	}
+	if askJSON == nil {
+		return fmt.Errorf("ask %v does not exist", askKey)
+	}
+
+	var ask *Ask
+	err = json.Unmarshal(askJSON, &ask)
+	if err != nil {
+		return err
+	}
+
+	// check that the client querying the bid is the bid owner
+	if ask.Seller != clientID {
+		return fmt.Errorf("Permission denied, client id %v is not the owner of the ask", clientID)
+	}
+
+	return nil
 }

@@ -8,44 +8,24 @@
 
 const { Gateway, Wallets } = require('fabric-network');
 const path = require('path');
-const { buildCCPOrg1, buildCCPOrg2, buildWallet } = require('../../../test-application/javascript/AppUtil.js');
+const { buildCCPOrg1, buildCCPOrg2, buildWallet, prettyJSONString} = require('../../../test-application/javascript/AppUtil.js');
 
 const myChannel = 'mychannel';
 const myChaincodeName = 'auction';
 
-
-function prettyJSONString(inputString) {
-    if (inputString) {
-        return JSON.stringify(JSON.parse(inputString), null, 2);
-    }
-    else {
-        return inputString;
-    }
-}
-
-async function submitBid(ccp,wallet,user,auctionID,round,quantity,bidID) {
+async function submitBid(ccp,wallet,user,auctionID,round,quantity,askID) {
     try {
 
         const gateway = new Gateway();
-      //connect using Discovery enabled
+        //connect using Discovery enabled
 
-      await gateway.connect(ccp,
+        await gateway.connect(ccp,
           { wallet: wallet, identity: user, discovery: { enabled: true, asLocalhost: true } });
 
         const network = await gateway.getNetwork(myChannel);
         const contract = network.getContract(myChaincodeName);
 
-        console.log('\n--> Evaluate Transaction: query the auction you want to join');
-        let auctionString = await contract.evaluateTransaction('QueryAuctionRound',auctionID,round);
-        var auctionJSON = JSON.parse(auctionString);
-
         let statefulTxn = contract.createTransaction('SubmitAsk');
-
-        if (auctionJSON.organizations.length == 2) {
-            statefulTxn.setEndorsingOrganizations(auctionJSON.organizations[0],auctionJSON.organizations[1]);
-            } else {
-            statefulTxn.setEndorsingOrganizations(auctionJSON.organizations[0]);
-            }
 
         console.log('\n--> Submit Transaction: add bid to the auction');
         await statefulTxn.submit(auctionID,round,quantity,askID);
@@ -76,7 +56,7 @@ async function main() {
         const auctionID = process.argv[4];
         const round = process.argv[5];
         const quantity = process.argv[6];
-        const bidID = process.argv[7];
+        const askID = process.argv[7];
 
         if (org == 'Org1' || org == 'org1') {
 

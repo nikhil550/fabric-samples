@@ -8,20 +8,10 @@
 
 const { Gateway, Wallets } = require('fabric-network');
 const path = require('path');
-const { buildCCPOrg1, buildCCPOrg2, buildWallet } = require('../../../test-application/javascript/AppUtil.js');
+const { buildCCPOrg1, buildCCPOrg2, buildWallet, prettyJSONString} = require('../../../test-application/javascript/AppUtil.js');
 
 const myChannel = 'mychannel';
 const myChaincodeName = 'auction';
-
-
-function prettyJSONString(inputString) {
-    if (inputString) {
-        return JSON.stringify(JSON.parse(inputString), null, 2);
-    }
-    else {
-        return inputString;
-    }
-}
 
 async function bid(ccp,wallet,user,orgMSP,item,quantity,price) {
     try {
@@ -36,28 +26,32 @@ async function bid(ccp,wallet,user,orgMSP,item,quantity,price) {
         const contract = network.getContract(myChaincodeName);
 
         console.log('\n--> Evaluate Transaction: get your client ID');
-        let buyer = await contract.evaluateTransaction('GetID');
+        let buyer = await contract.evaluateTransaction('GetSubmittingClientIdentity');
         console.log('*** Result:  Buyer ID is ' + buyer.toString());
 
         let bidData = { objectType: 'bid', quantity: parseInt(quantity) , price: parseInt(price), org: orgMSP, buyer: buyer.toString()};
 
-        let statefulTxn = contract.createTransaction('Bid');
-        statefulTxn.setEndorsingOrganizations(orgMSP);
+        let bidTransaction = contract.createTransaction('Bid');
+        bidTransaction.setEndorsingOrganizations(orgMSP);
         let tmapData = Buffer.from(JSON.stringify(bidData));
-        statefulTxn.setTransient({
+        bidTransaction.setTransient({
               bid: tmapData
             });
 
-        let bidID = statefulTxn.getTransactionId();
+        let bidID = bidTransaction.getTransactionId();
 
         console.log('\n--> Submit Transaction: Create the bid that is stored in your private data collection of your organization');
-        await statefulTxn.submit(item);
+        await bidTransaction.submit(item);
         console.log('*** Result: committed');
         console.log('*** Result ***SAVE THIS VALUE*** BidID: ' + bidID.toString());
 
         console.log('\n--> Evaluate Transaction: read the bid that was just created');
         let result = await contract.evaluateTransaction('QueryBid',item, bidID);
         console.log('*** Result:  Bid: ' + prettyJSONString(result.toString()));
+
+        let transaction = contract.createTransaction('NewPublicBid');
+        console.log('\n--> Submit Transaction: Add bid to the public book')
+        await transaction.submit(item, bidID.toString());
 
         gateway.disconnect();
     } catch (error) {
@@ -79,7 +73,7 @@ async function main() {
             process.exit(1);
         }
 
-        const org = process.argv[2]
+        const org = process.argv[2];
         const user = process.argv[3];
         const item = process.argv[4];
         const quantity = process.argv[5];

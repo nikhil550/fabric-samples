@@ -8,20 +8,10 @@
 
 const { Gateway, Wallets } = require('fabric-network');
 const path = require('path');
-const { buildCCPOrg1, buildCCPOrg2, buildWallet } = require('../../../test-application/javascript/AppUtil.js');
+const { buildCCPOrg1, buildCCPOrg2, buildWallet, prettyJSONString} = require('../../../test-application/javascript/AppUtil.js');
 
 const myChannel = 'mychannel';
 const myChaincodeName = 'auction';
-
-
-function prettyJSONString(inputString) {
-    if (inputString) {
-        return JSON.stringify(JSON.parse(inputString), null, 2);
-    }
-    else {
-        return inputString;
-    }
-}
 
 async function submitBid(ccp,wallet,user,auctionID,round,quantity,bidID) {
     try {
@@ -35,17 +25,7 @@ async function submitBid(ccp,wallet,user,auctionID,round,quantity,bidID) {
         const network = await gateway.getNetwork(myChannel);
         const contract = network.getContract(myChaincodeName);
 
-        console.log('\n--> Evaluate Transaction: query the auction you want to join');
-        let auctionString = await contract.evaluateTransaction('QueryAuctionRound',auctionID,round);
-        var auctionJSON = JSON.parse(auctionString);
-
         let statefulTxn = contract.createTransaction('SubmitBid');
-
-        if (auctionJSON.organizations.length == 2) {
-            statefulTxn.setEndorsingOrganizations(auctionJSON.organizations[0],auctionJSON.organizations[1]);
-            } else {
-            statefulTxn.setEndorsingOrganizations(auctionJSON.organizations[0]);
-            }
 
         console.log('\n--> Submit Transaction: add bid to the auction');
         await statefulTxn.submit(auctionID,round,quantity,bidID);
@@ -71,7 +51,7 @@ async function main() {
             process.exit(1);
         }
 
-        const org = process.argv[2]
+        const org = process.argv[2];
         const user = process.argv[3];
         const auctionID = process.argv[4];
         const round = process.argv[5];

@@ -8,22 +8,12 @@
 
 const { Gateway, Wallets } = require('fabric-network');
 const path = require('path');
-const { buildCCPOrg1, buildCCPOrg2, buildWallet } = require('../../../test-application/javascript/AppUtil.js');
+const { buildCCPOrg1, buildCCPOrg2, buildWallet, prettyJSONString} = require('../../../test-application/javascript/AppUtil.js');
 
 const myChannel = 'mychannel';
 const myChaincodeName = 'auction';
 
-
-function prettyJSONString(inputString) {
-    if (inputString) {
-        return JSON.stringify(JSON.parse(inputString), null, 2);
-    }
-    else {
-        return inputString;
-    }
-}
-
-async function CreateNewRound(ccp,wallet,user,auctionID,newRound,price) {
+async function CreateNewRound(ccp,wallet,user,auctionID,newRound) {
     try {
 
         const gateway = new Gateway();
@@ -38,7 +28,7 @@ async function CreateNewRound(ccp,wallet,user,auctionID,newRound,price) {
         let statefulTxn = contract.createTransaction('CreateNewRound');
 
         console.log('\n--> Submit Transaction: Propose a new auction');
-        await statefulTxn.submit(auctionID,newRound,parseInt(price));
+        await statefulTxn.submit(auctionID,newRound);
         console.log('*** Result: committed');
 
         console.log('\n--> Evaluate Transaction: query the auction that was just created');
@@ -55,8 +45,7 @@ async function main() {
     try {
 
         if (process.argv[2] == undefined || process.argv[3] == undefined
-            || process.argv[4] == undefined || process.argv[5] == undefined
-            || process.argv[6] == undefined) {
+            || process.argv[4] == undefined || process.argv[5] == undefined) {
             console.log("Usage: node createAuction.js org userID auctionID newRound price");
             process.exit(1);
         }
@@ -65,23 +54,20 @@ async function main() {
         const user = process.argv[3];
         const auctionID = process.argv[4];
         const newRound = process.argv[5];
-        const price = process.argv[6];
 
         if (org == 'Org1' || org == 'org1') {
 
-            const orgMSP = 'Org1MSP';
             const ccp = buildCCPOrg1();
             const walletPath = path.join(__dirname, 'wallet/org1');
             const wallet = await buildWallet(Wallets, walletPath);
-            await CreateNewRound(ccp,wallet,user,auctionID,newRound,price);
+            await CreateNewRound(ccp,wallet,user,auctionID,newRound);
         }
         else if (org == 'Org2' || org == 'org2') {
 
-            const orgMSP = 'Org2MSP';
             const ccp = buildCCPOrg2();
             const walletPath = path.join(__dirname, 'wallet/org2');
             const wallet = await buildWallet(Wallets, walletPath);
-            await CreateNewRound(ccp,wallet,user,auctionID,newRound,price);
+            await CreateNewRound(ccp,wallet,user,auctionID,newRound);
         }  else {
             console.log("Usage: node createAuction.js org userID auctionID newRound quantity");
             console.log("Org must be Org1 or Org2");
