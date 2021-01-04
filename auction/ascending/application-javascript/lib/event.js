@@ -6,25 +6,26 @@
 
 'use strict';
 
-const { sleep} = require('./connect.js');
+const sleep = require('./connect.js');
 const { prettyJSONString} = require('../../../../test-application/javascript/AppUtil.js');
 
 
 const channelName = 'mychannel';
 const chaincodeName = 'auction';
 
-exports.auctionBuyer = async (gateway, bidID) => {
+exports.auctionBuyer = async (gateway, bidID, activeAuction) => {
 
   const network = await gateway.getNetwork(channelName);
   const contract = network.getContract(chaincodeName);
 
-  let activeAuction = false
+  //let activeAuction = false;
+  const regex = /cat jumps over/
+
 
   try {
 
   let auctionListener;
   auctionListener = async (event) => {
-
 
     let randomTime = Math.floor(Math.random() * 15000) + 1000
     await sleep(randomTime)
@@ -33,11 +34,16 @@ exports.auctionBuyer = async (gateway, bidID) => {
       case `CreateAuction`:
 
        try {
-         activeAuction = true;
-         
+        // let activeAuction = true;
+
          let auction = JSON.parse(event.payload.toString());
-         let activeAuction = true
+
          console.log(`New Auction: ${prettyJSONString(event.payload.toString())}`);
+        //activeAuctionRound = new AuctionRound(auction.id,auction.round,auction.item,auction.demand,auction.quantity);
+        //activeAuctionRound.item = auction.item;
+        //activeAuctionRound.id = auction.id;
+         activeAuction = true;
+         console.log(`New Auction: ${activeAuction}`);
          // query bid
          let bid = await contract.evaluateTransaction('QueryBid',auction.item,bidID);
          let bidJSON = JSON.parse(bid.toString('utf8'));
@@ -62,6 +68,7 @@ exports.auctionBuyer = async (gateway, bidID) => {
 
           let auction = JSON.parse(event.payload.toString());
           console.log(`New Round: ${prettyJSONString(event.payload.toString())}`);
+          console.log(`New round: ${activeAuction}`);
           // query bid
           let bid = await contract.evaluateTransaction('QueryBid',auction.item,bidID);
           let bidJSON = JSON.parse(bid.toString('utf8'));
@@ -80,30 +87,40 @@ exports.auctionBuyer = async (gateway, bidID) => {
        }
        break;
 
+       case `EndAuction`:
+
+         console.log(`Auction ended ${event.payload}`);
+        break;
+
       }
     };
 
     await contract.addContractListener(auctionListener);
     console.log(`<-- added contract listener`);
 
-    while (activeAuction = false) {
-      await sleep(5000);
-      console.log(`waiting`)
-
-    }
-
   } catch (eventError) {
     console.log(`<-- Failed: Setup event - ${eventError}`);
   }
 };
+
+
 
 exports.auctionSeller = async (gateway, askID) => {
 
   const network = await gateway.getNetwork(channelName);
   const contract = network.getContract(chaincodeName);
 
-  let activeAuction = false;
-  let auctionEnded = false;
+ // let activeAuction = false;
+
+function auctionRound(id, round, item, demand, quantity) {
+    this.id = id;
+    this.round = round;
+    this.item = item;
+    this.demand = demand;
+    this.quantity = quantity;
+  };
+
+  let activeAuctionRound = {};
 
   try {
 
@@ -119,9 +136,11 @@ exports.auctionSeller = async (gateway, askID) => {
 
        try {
 
-        activeAuction = true;
+       // let activeAuction = true;
         let auction = JSON.parse(event.payload.toString());
         console.log(`New Auction: ${prettyJSONString(event.payload.toString())}`);
+        //activeAuctionRound = new auctionRound(auction.id,auction.round,auction.item,auction.demand,auction.quantity);
+        //console.log(`New Auction: ${activeAuctionRound}`);
         // query ask
         let ask = await contract.evaluateTransaction('QueryAsk',auction.item,askID);
         let askJSON = JSON.parse(ask.toString('utf8'));
@@ -131,7 +150,7 @@ exports.auctionSeller = async (gateway, askID) => {
           }
 
         } catch (error) {
-        console.log(`<-- CreateAction event response failed: ${error}`);
+        console.log(`<-- CreateAction event response failed: ${error.name}`);
       }
       break;
 
@@ -150,7 +169,7 @@ exports.auctionSeller = async (gateway, askID) => {
            }
 
          } catch (error) {
-         console.log(`<-- CreateNewRound event response failed: ${error}`);
+         console.log(`<-- CreateNewRound event response failed: ${error.name}`);
        }
        break;
 
@@ -167,7 +186,7 @@ exports.auctionSeller = async (gateway, askID) => {
           }
 
          } catch (error) {
-         console.log(`<-- newBid event response failed: ${error}`);
+         console.log(`<-- newBid event response failed: ${error.name}`);
        }
        break;
 
@@ -181,23 +200,19 @@ exports.auctionSeller = async (gateway, askID) => {
           await transaction.submit(closedAuction.id);
 
           } catch (error) {
-          console.log(`<-- CloseAuction event response failed: ${error}`);
+          console.log(`<-- CloseAuction event response failed: ${error.name}`);
         }
 
       case `EndAuction`:
-        auctionEnded = true
+    //  activeAuction = false
         console.log(`Auction ended ${event.payload}`);
        break;
       };
     };
+
     await contract.addContractListener(auctionListener);
     console.log(`<-- added contract listener`);
 
-    while (activeAuction = false) {
-      await sleep(5000);
-      console.log(`waiting`)
-
-    }
 
   } catch (eventError) {
     console.log(`<-- Failed: Setup event - ${eventError}`);

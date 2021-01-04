@@ -7,19 +7,15 @@
 'use strict';
 
 const { prettyJSONString} = require('../../../test-application/javascript/AppUtil.js');
-
+const State = require('./lib/auctionRound.js');
 const { initGatewayForOrg1, initGatewayForOrg2, sleep} = require('./lib/connect.js');
 const { bid, ask } = require('./lib/bidAsk.js');
 const { auctionBuyer, auctionSeller} = require('./lib/event.js');
 
 const channelName = 'mychannel';
 const chaincodeName = 'auction';
-const item = 'good4';
-const auctionID = 'auction4';
-
-//function sleep(ms) {
-//	return new Promise((resolve) => setTimeout(resolve, ms));
-//}
+const item = 'good1';
+const auctionID = 'auction1';
 
 
 async function main() {
@@ -52,19 +48,18 @@ async function main() {
       const gatewaySeller4 = await initGatewayForOrg2("seller4")
       const askIDSeller4 = await ask(gatewaySeller4,"Org2MSP",item,"20","90");
 
+
 			// setup event for bidder1
 //			const gatewayBidder = await initGatewayForOrg1("bidder1")
-			auctionBuyer(gatewayBidder1,bidIDBidder1);
-			auctionBuyer(gatewayBidder2,bidIDBidder2);
-			auctionBuyer(gatewayBidder3,bidIDBidder3);
-			auctionBuyer(gatewayBidder4,bidIDBidder4);
-			auctionBuyer(gatewayBidder5,bidIDBidder5);
-			auctionSeller(gatewaySeller1,askIDSeller1);
-			auctionSeller(gatewaySeller2,askIDSeller3);
-			auctionSeller(gatewaySeller3,askIDSeller3);
-			auctionSeller(gatewaySeller4,askIDSeller4);
-
-				// C R E A T E
+			auctionBuyer(gatewayBidder1,bidIDBidder1,activeAuction);
+		//	auctionBuyer(gatewayBidder2,bidIDBidder2);
+		//	auctionBuyer(gatewayBidder3,bidIDBidder3);
+		//	auctionBuyer(gatewayBidder4,bidIDBidder4);
+		//	auctionBuyer(gatewayBidder5,bidIDBidder5);
+		//	auctionSeller(gatewaySeller1,askIDSeller1);
+		//	auctionSeller(gatewaySeller2,askIDSeller3);
+		//	auctionSeller(gatewaySeller3,askIDSeller3);
+		//	auctionSeller(gatewaySeller4,askIDSeller4);
 
 			//	const gatewaySeller = await initGatewayForOrg1("seller1");
 				const network = await gatewaySeller1.getNetwork(channelName);
@@ -73,10 +68,25 @@ async function main() {
     		let transaction = contract.createTransaction('CreateAuction');
     		await transaction.submit(auctionID, item, '20');
 
-        await sleep(30000);
+        // C R E A T E
 
-				let result = await contract.evaluateTransaction('QueryAuction',auctionID);
-				console.log('*** Result: Auction: ' + prettyJSONString(result.toString()));
+
+    //    await sleep(30000);
+
+        var activeAuction = true;
+
+        while (activeAuction) {
+          await sleep(5000);
+          let result = await contract.evaluateTransaction('QueryAuction',auctionID);
+          console.log('*** Result: Auction: ' + prettyJSONString(result.toString()));
+          let auction = JSON.parse(result.toString());
+          var activeAuction = new Person(auction.id,auction.round, auction.item, auction.demand, auction.quantity);
+
+          console.log(`auction loop:`);
+            // console.log(`waiting`)
+          };
+
+
 
     		// all done with this listener
     ///		contract.removeContractListener(auctionListener);

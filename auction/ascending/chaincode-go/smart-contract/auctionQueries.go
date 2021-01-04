@@ -13,6 +13,17 @@ import (
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
 
+
+type BidReturn struct {
+	ID     	string 	`json:"id"`
+	Bid 		Bid   	`json:"bid"`
+}
+
+type AskReturn struct {
+	ID     	string 	`json:"id"`
+	Ask 		Ask    	`json:"ask"`
+}
+
 // QueryAuction allows all members of the channel to read a public auction
 func (s *SmartContract) QueryAuction(ctx contractapi.TransactionContextInterface, auctionID string) ([]*Auction, error) {
 
@@ -86,7 +97,10 @@ func (s *SmartContract) QueryBid(ctx contractapi.TransactionContextInterface, it
 
 	err = s.checkBidOwner(ctx, collection, bidKey)
 	if err != nil {
-		return nil, err
+		err = ctx.GetClientIdentity().AssertAttributeValue("role", "auctionAdmin")
+		if err != nil {
+			return nil, fmt.Errorf("submitting client needs to be the bid owner or an auction admin")
+		}
 	}
 
 	bidJSON, err := ctx.GetStub().GetPrivateData(collection, bidKey)
@@ -126,7 +140,10 @@ func (s *SmartContract) QueryAsk(ctx contractapi.TransactionContextInterface, it
 
 	err = s.checkAskOwner(ctx, collection, askKey)
 	if err != nil {
-		return nil, err
+		err = ctx.GetClientIdentity().AssertAttributeValue("role", "auctionAdmin")
+		if err != nil {
+			return nil, fmt.Errorf("submitting client needs to be the ask owner or an auction admin")
+		}
 	}
 
 	askJSON, err := ctx.GetStub().GetPrivateData(collection, askKey)
@@ -145,6 +162,119 @@ func (s *SmartContract) QueryAsk(ctx contractapi.TransactionContextInterface, it
 
 	return ask, nil
 }
+
+// QueryBids returns a list of bids from certain items
+func (s *SmartContract) QueryBids(ctx contractapi.TransactionContextInterface, item string) ([]BidReturn, error) {
+
+	err := ctx.GetClientIdentity().AssertAttributeValue("role", "auctionAdmin")
+		if err != nil {
+			return nil, fmt.Errorf("submitting client needs to be an auction admin")
+		}
+
+	err = verifyClientOrgMatchesPeerOrg(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get implicit collection name: %v", err)
+	}
+
+	collection, err := getCollectionName(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get implicit collection name: %v", err)
+	}
+
+	resultsIterator, err := ctx.GetStub().GetPrivateDataByPartialCompositeKey(collection, bidKeyType, []string{item})
+	if err != nil {
+		return nil, err
+	}
+	defer resultsIterator.Close()
+
+	var bidReturns []BidReturn
+	for resultsIterator.HasNext() {
+		queryResponse, err := resultsIterator.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		_, keyParts, Err := ctx.GetStub().SplitCompositeKey(queryResponse.Key)
+		if Err != nil {
+			return  nil, err
+		}
+
+		txID := keyParts[1]
+
+		var bid Bid
+		err = json.Unmarshal(queryResponse.Value, bid)
+		if err != nil {
+			return nil, err
+		}
+
+		bidReturn := BidReturn{
+			ID: txID,
+			Bid: bid,
+		}
+
+		bidReturns = append(bidReturns, bidReturn)
+	}
+
+	return bidReturns, nil
+}
+
+
+// QueryBids returns a list of aks from certain items
+func (s *SmartContract) QueryAsks(ctx contractapi.TransactionContextInterface, item string) ([]AskReturn, error) {
+
+	err := ctx.GetClientIdentity().AssertAttributeValue("role", "auctionAdmin")
+		if err != nil {
+			return nil, fmt.Errorf("submitting client needs to be an auction admin")
+		}
+
+	err = verifyClientOrgMatchesPeerOrg(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get implicit collection name: %v", err)
+	}
+
+	collection, err := getCollectionName(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get implicit collection name: %v", err)
+	}
+
+	resultsIterator, err := ctx.GetStub().GetPrivateDataByPartialCompositeKey(collection, askKeyType, []string{item})
+	if err != nil {
+		return nil, err
+	}
+	defer resultsIterator.Close()
+
+	var askReturns []AskReturn
+	for resultsIterator.HasNext() {
+		queryResponse, err := resultsIterator.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		_, keyParts, Err := ctx.GetStub().SplitCompositeKey(queryResponse.Key)
+		if Err != nil {
+			return  nil, Err
+		}
+
+		txID := keyParts[1]
+
+		var ask Ask
+		err = json.Unmarshal(queryResponse.Value, ask)
+		if err != nil {
+			return nil, err
+		}
+
+		askReturn := AskReturn{
+			ID: txID,
+			Ask: ask,
+		}
+
+		askReturns = append(askReturns, askReturn)
+
+	}
+
+	return askReturns, nil
+}
+
 
 // queryAllBids is an internal function that is used to determine if a winning
 // has yet to be revealed for the round bid has yet to be revealed
@@ -258,7 +388,7 @@ func queryAllAsks(ctx contractapi.TransactionContextInterface, auctionPrice int,
 
 		if _, askInAuction := sellers[askKey]; askInAuction {
 
-			//bid is already in the auction, no action to take
+			//ask is already in the auction, no action to take
 
 		} else {
 

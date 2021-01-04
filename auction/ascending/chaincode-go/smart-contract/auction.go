@@ -207,16 +207,9 @@ func (s *SmartContract) CloseAuctionRound(ctx contractapi.TransactionContextInte
 		return fmt.Errorf("Can only close an open auction")
 	}
 
-	// check if there is a bid with a higher price that has yet to be revealed
-	err = queryAllBids(ctx, auction.Price, auction.ItemSold, auction.Bidders)
+	err = s.closeAuctionChecks(ctx, auction)
 	if err != nil {
-		return fmt.Errorf("Cannot close auction: %v", err)
-	}
-
-	// check if there is an ask with a lower price that has yet to be revealed
-	err = queryAllAsks(ctx, auction.Price, auction.ItemSold, auction.Sellers)
-	if err != nil {
-		return fmt.Errorf("Cannot close auction: %v", err)
+		return fmt.Errorf("Cannot closer round, round and auction is still active")
 	}
 
 	auction.Status = string("closed")
@@ -284,6 +277,42 @@ func (s *SmartContract) EndAuction(ctx contractapi.TransactionContextInterface, 
 	err = ctx.GetStub().SetEvent("EndAuction", []byte(auctionID))
 	if err != nil {
 		return fmt.Errorf("event failed to register: %v", err)
+	}
+
+	return nil
+}
+
+func (s *SmartContract) closeAuctionChecks(ctx contractapi.TransactionContextInterface, auction *Auction) error {
+
+	// check 1: check that all bids have been added to the round
+
+	err := queryAllBids(ctx, auction.Price, auction.ItemSold, auction.Bidders)
+	if err != nil {
+		return fmt.Errorf("Cannot close auction: %v", err)
+	}
+
+	// check 2: check that all asks have been added to the round
+
+	err = queryAllAsks(ctx, auction.Price, auction.ItemSold, auction.Sellers)
+	if err != nil {
+		return fmt.Errorf("Cannot close auction: %v", err)
+	}
+
+	// check 3: D for the previous round before creating a new round
+
+	if auction.Quantity <= auction.Demand {
+
+		newRound := auction.Round + 1
+		nextAuctionRound, err := s.QueryAuctionRound(ctx, auction.ID, newRound)
+		if nextAuctionRound == nil {
+			return fmt.Errorf("Need to start new round before this round can be closed")
+		}
+
+		err = s.closeAuctionChecks(ctx, nextAuctionRound)
+		if err != nil {
+			return fmt.Errorf("Next round is still active")
+		}
+
 	}
 
 	return nil

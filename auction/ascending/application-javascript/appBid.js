@@ -12,7 +12,7 @@ const { bid, ask } = require('./lib/bidAsk.js');
 
 const myChannel = 'mychannel';
 const myChaincodeName = 'auction';
-const item = 'good';
+const item = 'tickets';
 
 async function main() {
     try {

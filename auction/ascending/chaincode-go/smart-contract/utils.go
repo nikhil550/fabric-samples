@@ -43,6 +43,7 @@ func getCollectionName(ctx contractapi.TransactionContextInterface) (string, err
 
 // verifyClientOrgMatchesPeerOrg is an internal function used to verify that client org id matches peer org id.
 func verifyClientOrgMatchesPeerOrg(ctx contractapi.TransactionContextInterface) error {
+	
 	clientMSPID, err := ctx.GetClientIdentity().GetMSPID()
 	if err != nil {
 		return fmt.Errorf("failed getting the client's MSPID: %v", err)
