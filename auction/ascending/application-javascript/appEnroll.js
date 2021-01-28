@@ -68,7 +68,7 @@ async function main() {
     var users = ["bidder3", "bidder4", "bidder5", "seller3", "seller4"];
     var userID;
     for (userID of users) {
-      await registerAndEnrollUser(caOrg2Client, walletOrg2, mspOrg2,userID, 'org2.department1');
+      await registerAndEnrollUser(caOrg1Client, walletOrg1, mspOrg1,userID, 'org1.department1');
     }
 
   } catch (error) {

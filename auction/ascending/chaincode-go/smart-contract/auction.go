@@ -16,8 +16,8 @@ type SmartContract struct {
 	contractapi.Contract
 }
 
-// Auction data
-type Auction struct {
+// Auction Round is the structure of a bid in public state
+type AuctionRound struct {
 	Type     string            `json:"objectType"`
 	ID       string            `json:"id"`
 	Round    int               `json:"round"`
@@ -25,6 +25,7 @@ type Auction struct {
 	ItemSold string            `json:"item"`
 	Price    int               `json:"price"`
 	Quantity int               `json:"quantity"`
+	sold		 int               `json:"allocated"`
 	Demand   int               `json:"demand"`
 	Sellers  map[string]Seller `json:"sellers"`
 	Bidders  map[string]Bidder `json:"bidders"`
@@ -67,12 +68,14 @@ type Seller struct {
 	Seller   string `json:"seller"`
 	Org      string `json:"org"`
 	Quantity int    `json:"quantity"`
+	Sold		 int		`json:"sold"`
 }
 
+// incrementAmount is the price increase of each new round of the auction
 const incrementAmount = 10
 
-// CreateAuction creates on auction on the public channel. Each auction round is
-// stored as a seperate key in the world state
+// CreateAuction creates a new auction on the public channel.
+// Each round of teh auction is stored as a seperate key in the world state
 func (s *SmartContract) CreateAuction(ctx contractapi.TransactionContextInterface, auctionID string, itemSold string, reservePrice int) error {
 
 	existingAuction, err := s.QueryAuction(ctx, auctionID)
@@ -83,15 +86,15 @@ func (s *SmartContract) CreateAuction(ctx contractapi.TransactionContextInterfac
 	sellers := make(map[string]Seller)
 	bidders := make(map[string]Bidder)
 
-	// Check 1: check if there is an ask from your org that is lower than the reserve price
-	err = queryAllAsks(ctx, reservePrice, itemSold, sellers)
+	// Check if there is an ask from your org that is lower
+	// than the reserve price of the first round before creating the auction
+	err = checkForLowerAsk(ctx, reservePrice, itemSold, sellers)
 	if err != nil {
 		return fmt.Errorf("seller has lower ask, cannot open a new auction at this price: %v", err)
 	}
 
-	// Create auction
-
-	auction := Auction{
+	// Create the first round of the auction
+	auction := AuctionRound{
 		Type:     "auction",
 		ID:       auctionID,
 		Round:    0,
@@ -109,13 +112,13 @@ func (s *SmartContract) CreateAuction(ctx contractapi.TransactionContextInterfac
 		return err
 	}
 
-	// create a composite key using the round
+	// create a composite key for the auction round
 	auctionKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(auction.Round)})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)
 	}
 
-	// put auction into state
+	// put auction round into state
 	err = ctx.GetStub().PutState(auctionKey, auctionJSON)
 	if err != nil {
 		return fmt.Errorf("failed to put auction in public data: %v", err)
@@ -130,20 +133,20 @@ func (s *SmartContract) CreateAuction(ctx contractapi.TransactionContextInterfac
 	return nil
 }
 
-// CreateNewRound creates another round of the auction, which is a seperate key
+// CreateNewRound creates a new round of the auction. The new round has a seperate key
 // in world state. Bidders and sellers have the abiltiy to join the round at the
 // new price
 func (s *SmartContract) CreateNewRound(ctx contractapi.TransactionContextInterface, auctionID string, newRound int) error {
 
-	// check 1: there was no previous round
+	// checks before creatin a new round
 
+	// check 1: the round has not already been created
 	auction, err := s.QueryAuctionRound(ctx, auctionID, newRound)
 	if auction != nil {
 		return fmt.Errorf("Cannot create new round: round already exists")
 	}
 
-	// check 2: was there a previous round
-
+	// check 2: there was there a previous round
 	previousRound := newRound - 1
 
 	auction, err = s.QueryAuctionRound(ctx, auctionID, previousRound)
@@ -151,13 +154,12 @@ func (s *SmartContract) CreateNewRound(ctx contractapi.TransactionContextInterfa
 		return fmt.Errorf("Cannot create round until previous round is created")
 	}
 
-	// check 3: confirm that Demand > Supply for the previous round before creating a new round
-
+	// check 3: confirm that Demand >= Supply for the previous round before creating a new round
 	if auction.Quantity >= auction.Demand {
 		return fmt.Errorf("Cannot create new round: demand is not yet greater than supply")
 	}
 
-	// Because both checks passed, create a new round
+	// If all three checks have passed, create a new round
 
 	sellers := make(map[string]Seller)
 	bidders := make(map[string]Bidder)
@@ -173,7 +175,7 @@ func (s *SmartContract) CreateNewRound(ctx contractapi.TransactionContextInterfa
 	if err != nil {
 		return err
 	}
-	// create a composite key using the transaction ID
+	// create a composite key for the new round
 	newAuctionRoundKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(auction.Round)})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)
@@ -185,7 +187,7 @@ func (s *SmartContract) CreateNewRound(ctx contractapi.TransactionContextInterfa
 	}
 
 	// create an event to notify buyers and sellers of a new round
-	err = ctx.GetStub().SetEvent("CreateNewRound", newAuctionRoundJSON)
+	err = ctx.GetStub().SetEvent("CreateNewRound", []byte(auctionID))
 	if err != nil {
 		return fmt.Errorf("event failed to register: %v", err)
 	}
@@ -193,13 +195,14 @@ func (s *SmartContract) CreateNewRound(ctx contractapi.TransactionContextInterfa
 	return nil
 }
 
-// CloseAuction can be used by the seller to close the auction. This prevents
-// bids from being added to the auction, and allows users to reveal their bid
+// CloseAuctionRound closes a given round of the auction. This prevents
+// bids from being added to the auction round, signaling that auction has
+// reached a steady state.
 func (s *SmartContract) CloseAuctionRound(ctx contractapi.TransactionContextInterface, auctionID string, round int) error {
 
 	auction, err := s.QueryAuctionRound(ctx, auctionID, round)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error getting auction round from state")
 	}
 
 	Status := auction.Status
@@ -207,6 +210,9 @@ func (s *SmartContract) CloseAuctionRound(ctx contractapi.TransactionContextInte
 		return fmt.Errorf("Can only close an open auction")
 	}
 
+	// compelete series of checks before the auction can be closed.
+	// checks confirms if the auction is still active before it can
+	// be clossed
 	err = s.closeAuctionChecks(ctx, auction)
 	if err != nil {
 		return fmt.Errorf("Cannot closer round, round and auction is still active")
@@ -216,18 +222,20 @@ func (s *SmartContract) CloseAuctionRound(ctx contractapi.TransactionContextInte
 
 	closedAuction, _ := json.Marshal(auction)
 
-	// create a composite key using the round
+	// create a composite key for the new round
 	auctionKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(round)})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)
 	}
 
+	// put the updated auction round in state
 	err = ctx.GetStub().PutState(auctionKey, closedAuction)
 	if err != nil {
 		return fmt.Errorf("failed to close auction: %v", err)
 	}
 
-	err = ctx.GetStub().SetEvent("closeRound", closedAuction)
+	// create an event that a round has closed
+	err = ctx.GetStub().SetEvent("closeRound", []byte(auctionID))
 	if err != nil {
 		return fmt.Errorf("event failed to register: %v", err)
 	}
@@ -235,16 +243,16 @@ func (s *SmartContract) CloseAuctionRound(ctx contractapi.TransactionContextInte
 	return nil
 }
 
-// EndAuction closes all of the auction rounds for bidding. The closed round
-// has status final. All other rounds are removed from state.
+// EndAuction defines the closed round as final stage of the auction.
+// all other auction rounds are deleted from state.
 func (s *SmartContract) EndAuction(ctx contractapi.TransactionContextInterface, auctionID string) error {
 
 	auction, err := s.QueryAuction(ctx, auctionID)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error getting auction round from state")
 	}
 
-	// Find if round is closed. If a round is closed, declare found final.
+	// find if a round has been closed. If a round is closed, declare round final.
 	closedRound := false
 	for _, auctionRound := range auction {
 		if auctionRound.Status == "closed" {
@@ -274,6 +282,7 @@ func (s *SmartContract) EndAuction(ctx contractapi.TransactionContextInterface, 
 		}
 	}
 
+	// create an event that the auction has ended.
 	err = ctx.GetStub().SetEvent("EndAuction", []byte(auctionID))
 	if err != nil {
 		return fmt.Errorf("event failed to register: %v", err)
@@ -282,24 +291,25 @@ func (s *SmartContract) EndAuction(ctx contractapi.TransactionContextInterface, 
 	return nil
 }
 
-func (s *SmartContract) closeAuctionChecks(ctx contractapi.TransactionContextInterface, auction *Auction) error {
+//closeAuctionChecks completes a series of checks to see if the auction is still active before
+// closing a round.
+func (s *SmartContract) closeAuctionChecks(ctx contractapi.TransactionContextInterface, auction *AuctionRound) error {
 
 	// check 1: check that all bids have been added to the round
-
-	err := queryAllBids(ctx, auction.Price, auction.ItemSold, auction.Bidders)
+	err := checkForHigherBid(ctx, auction.Price, auction.ItemSold, auction.Bidders)
 	if err != nil {
 		return fmt.Errorf("Cannot close auction: %v", err)
 	}
 
 	// check 2: check that all asks have been added to the round
-
-	err = queryAllAsks(ctx, auction.Price, auction.ItemSold, auction.Sellers)
+	err = checkForLowerAsk(ctx, auction.Price, auction.ItemSold, auction.Sellers)
 	if err != nil {
 		return fmt.Errorf("Cannot close auction: %v", err)
 	}
 
-	// check 3: D for the previous round before creating a new round
-
+	// check 3: if supply is less than demand
+	// check if there is another round. If there is, run the same checks
+	// on that round
 	if auction.Quantity <= auction.Demand {
 
 		newRound := auction.Round + 1

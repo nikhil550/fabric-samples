@@ -21,7 +21,7 @@ You can then run the following command to deploy a new network.
 
 Run the following command to deploy the auction smart contract.
 ```
-./network.sh deployCC -ccn auction -ccp ../auction/ascending/chaincode-go/ -ccep "OR('Org1MSP.peer','Org2MSP.peer')" -ccl go
+./network.sh deployCC -ccn auction -ccp ../auction/ascending/chaincode-go/ -ccl go
 ```
 
 ## Install the application dependencies
@@ -193,15 +193,15 @@ export SELLER4_BID_ID=8fd985f6c4ef8f65546747e1eb16fac754ad3403d4ffca5643508d0d1e
 ## Just the bids
 
 ```
-export BIDDER1_BID_ID=22872bc4b47d283e075bee14bab5699813504e8d0fe8ab41099d06c13a299a05
-export BIDDER2_BID_ID=9a61c6cd454ecf08874ffcc1891a687a0acd95492911675d1efe9a06443cfd48
-export BIDDER3_BID_ID=b93e39dd0a692c55ec6725ffa0d39492b769bc9f980b5c4abe85e434f1227dab
-export BIDDER4_BID_ID=155d159a58e4832573c31fd97c76bdfbbd428637adc5cf23216bcb6f68cfe447
-export BIDDER5_BID_ID=e9f04ac74ce2342bfee32ea390f85ecc56f3c0df94d1cfa0e523a2df9716c075
-export SELLER1_BID_ID=1c60b7f80b9414fae5a83776891ae7d016c6e0b6cfd75db7ef853a53b74f7acb
-export SELLER2_BID_ID=4f8ac4bfc014b66df47fd9aa65d33cbd62006c7ea994ec5a17e2acbe48990271
-export SELLER3_BID_ID=1a2f376645a3032a7506d1600bacbf5a1c368faf0098706235fa922fe59c3717
-export SELLER4_BID_ID=f3a872d2a6fb9e02925a0da5e8b4efecf155fca737773ffb32fbf4b5b8a798b5
+export BIDDER1_BID_ID=ecab65b74ab3a91a3961a2bb99127faaa8ac4ce66f4d23b23f9b2d56f7505571
+export BIDDER2_BID_ID=762bd953cf80f4301dc6880d7eb043e812e9ee25070e9d819d56aa7e13d00630
+export BIDDER3_BID_ID=0a076623c15bf9da4333f81c17116311e8e10aafbf9cfd9a134a1ca668fab2f4
+export BIDDER4_BID_ID=bd68479743cc4cdaad7040a8f7198a9bcd9695f06d510251a84f2dfd4aef7584
+export BIDDER5_BID_ID=36a60cfb6b8f8aa4493cd9a4d33c9914c7dca03306a987d71dee92cf5337967c
+export SELLER1_BID_ID=6f540641aec955bf5c59f41f1c5b8c3c63d66f41d66bb37159e7fc23ffd75382
+export SELLER2_BID_ID=364079055cabc3411d011b5e921d4d69be67d00e74b97868e1f96f4f60f44cec
+export SELLER3_BID_ID=16f3d62468cba6befe92105995e5906f11d9aa8e5cfe5c58dbe61edfb7b101af
+export SELLER4_BID_ID=483968aeaa001fcf1e73d622e440a2fc30fc9ae32c31d18e84325033f5c949ca
 ```
 
 ## Create the auction
@@ -254,6 +254,9 @@ The hash of bid is added to the list of private bids in that have been submitted
 ```
 
 
+```
+node closeAuctionRound.js org1 seller1 auction1 1
+```
 
 Submit bidder2's bid to the auction:
 ```

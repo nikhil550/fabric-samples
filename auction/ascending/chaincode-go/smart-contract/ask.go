@@ -14,6 +14,8 @@ import (
 
 const askKeyType = "ask"
 
+// Ask is used to sell a certain item. The ask is stored in private data
+// of the sellers organization, and identified by the item and transaction id
 func (s *SmartContract) Ask(ctx contractapi.TransactionContextInterface, item string) (string, error) {
 
 	// get bid from transient map
@@ -42,8 +44,8 @@ func (s *SmartContract) Ask(ctx contractapi.TransactionContextInterface, item st
 	// the transaction ID is used as a unique index for the bid
 	txID := ctx.GetStub().GetTxID()
 
-	// create a composite key using the transaction ID
-	askKey, err := ctx.GetStub().CreateCompositeKey(askKeyType, []string{item,txID})
+	// create a composite key using the item and transaction ID
+	askKey, err := ctx.GetStub().CreateCompositeKey(askKeyType, []string{item, txID})
 	if err != nil {
 		return "", fmt.Errorf("failed to create composite key: %v", err)
 	}
@@ -58,6 +60,7 @@ func (s *SmartContract) Ask(ctx contractapi.TransactionContextInterface, item st
 	return txID, nil
 }
 
+// SubmitAsk is used to add an ask to an active auction round
 func (s *SmartContract) SubmitAsk(ctx contractapi.TransactionContextInterface, auctionID string, round int, quantity int, txID string) error {
 
 	// get identity of submitting client
@@ -74,7 +77,7 @@ func (s *SmartContract) SubmitAsk(ctx contractapi.TransactionContextInterface, a
 
 	auction, err := s.QueryAuctionRound(ctx, auctionID, round)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error getting auction round from state")
 	}
 
 	// the auction needs to be open for users to add their bid
@@ -90,7 +93,7 @@ func (s *SmartContract) SubmitAsk(ctx contractapi.TransactionContextInterface, a
 		Quantity: quantity,
 	}
 
-	// create a composite key for ask using the transaction ID
+	// create a composite key for ask using the item and transaction ID
 	askKey, err := ctx.GetStub().CreateCompositeKey(askKeyType, []string{auction.ItemSold, txID})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)
@@ -102,27 +105,34 @@ func (s *SmartContract) SubmitAsk(ctx contractapi.TransactionContextInterface, a
 	sellers[askKey] = NewSeller
 	auction.Sellers = sellers
 
-	auction.Quantity = auction.Quantity + NewSeller.Quantity
+	// update the auction round supply
+	newQuantity := 0
+	for _, seller := range sellers {
+		newQuantity = newQuantity + seller.Quantity
+	}
+
+	auction.Quantity = newQuantity
 
 	// Update the list of winners
 	bidders := make(map[string]Bidder)
 	bidders = auction.Bidders
 
+	// update the quantity wom
 	if auction.Demand < auction.Quantity {
 		for bidKey, bidder := range bidders {
 			bidder.Won = bidder.Quantity
 			bidders[bidKey] = bidder
 		}
-	}	else {
+	} else {
 		for bidKey, bidder := range bidders {
-			bidder.Won = (bidder.Quantity * auction.Demand) / auction.Quantity
+			bidder.Won = (bidder.Quantity * auction.Quantity) / auction.Demand
 			bidders[bidKey] = bidder
 		}
 	}
 
 	auction.Bidders = bidders
 
-	// create a composite for auction using the round
+	// create a composite key for auction round
 	auctionKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(round)})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)
@@ -130,22 +140,16 @@ func (s *SmartContract) SubmitAsk(ctx contractapi.TransactionContextInterface, a
 
 	newAuctionJSON, _ := json.Marshal(auction)
 
+	// put update auction in state
 	err = ctx.GetStub().PutState(auctionKey, newAuctionJSON)
 	if err != nil {
 		return fmt.Errorf("failed to update auction: %v", err)
 	}
 
-	// Create event for new ask
-	err = ctx.GetStub().SetEvent("newAsk", newAuctionJSON)
-		if err != nil {
-			return fmt.Errorf("event failed to register: %v", err)
-		}
-
 	return nil
 }
 
-// DeleteAsk allows the seller of the bid to delete their bid from the private data
-// collection and from private state
+// DeleteAsk allows the seller of the bid to delete their bid from private data
 func (s *SmartContract) DeleteAsk(ctx contractapi.TransactionContextInterface, item string, txID string) error {
 
 	err := verifyClientOrgMatchesPeerOrg(ctx)
@@ -158,11 +162,13 @@ func (s *SmartContract) DeleteAsk(ctx contractapi.TransactionContextInterface, i
 		return fmt.Errorf("failed to get implicit collection name: %v", err)
 	}
 
+	// create a composite key using the item and transaction ID
 	askKey, err := ctx.GetStub().CreateCompositeKey(askKeyType, []string{item, txID})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)
 	}
 
+	// check that the owner is being deleted by the ask owner
 	err = s.checkAskOwner(ctx, collection, askKey)
 	if err != nil {
 		return err
@@ -176,28 +182,17 @@ func (s *SmartContract) DeleteAsk(ctx contractapi.TransactionContextInterface, i
 	return nil
 }
 
-
+// NewPublicAsk adds an ask to the public order book. This ensures
+// that sellers cannot change their ask during an active auction
 func (s *SmartContract) NewPublicAsk(ctx contractapi.TransactionContextInterface, item string, txID string) error {
 
-	//bidders cannot submit if there is an open auction
-//	auction, err := s.QueryAuction(ctx, nil)
-//	if err != nil {
-//		return err
-//	}
-
-	// Find if round is closed. If a round is closed, declare found final.
-//	for _, auctionRound := range auction {
-//		if auctionRound.Status == "open" {
-//			return fmt.Errorf("cannot add public bid or ask an auction for the item is open")
-//		}
-//  }
-
-	// get the implicit collection name using the bidder's organization ID
+	// get the implicit collection name using the seller's organization ID
 	collection, err := getCollectionName(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get implicit collection name: %v", err)
 	}
 
+	// create a composite key using the item and transaction ID
 	askKey, err := ctx.GetStub().CreateCompositeKey(askKeyType, []string{item, txID})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)

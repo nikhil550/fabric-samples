@@ -8,13 +8,24 @@
 
 class AuctionRound {
 
-  constructor(id, round, item, demand, quantity) {
+  constructor(id, round, price, item, demand, quantity) {
     this.id = id;
     this.round = round;
+    this.price = price;
     this.item = item;
     this.demand = demand;
     this.quantity = quantity;
+    this.joined = false
   }
-}
 
+  join() {
+    this.joined = true;
+  }
+
+  updateAuction(demand, quantity) {
+    this.demand = demand;
+    this.quantity = quantity;
+  }
+
+}
 module.exports = AuctionRound;

@@ -15,7 +15,7 @@ import (
 
 const bidKeyType = "bid"
 
-// Bid is used to add a users bid to the auction. The bid is stored in the private
+// Bid is used to create a bid for a certain item. The bid is stored in the private
 // data collection on the peer of the bidder's organization. The function returns
 // the transaction ID so that users can identify and query their bid
 func (s *SmartContract) Bid(ctx contractapi.TransactionContextInterface, item string) (string, error) {
@@ -46,8 +46,8 @@ func (s *SmartContract) Bid(ctx contractapi.TransactionContextInterface, item st
 	// the transaction ID is used as a unique index for the bid
 	txID := ctx.GetStub().GetTxID()
 
-	// create a composite key using the transaction ID
-	bidKey, err := ctx.GetStub().CreateCompositeKey(bidKeyType, []string{item,txID})
+	// create composite key for the bid using the item and the txid
+	bidKey, err := ctx.GetStub().CreateCompositeKey(bidKeyType, []string{item, txID})
 	if err != nil {
 		return "", fmt.Errorf("failed to create composite key: %v", err)
 	}
@@ -62,9 +62,8 @@ func (s *SmartContract) Bid(ctx contractapi.TransactionContextInterface, item st
 	return txID, nil
 }
 
-// SubmitBid is used by the bidder to add the hash of that bid stored in private data to the
-// auction. Note that this function alters the auction in private state, and needs
-// to meet the auction endorsement policy. Transaction ID is used identify the bid
+// SubmitBid adds a bid to an auction round. If successful, updates the
+// quantity demanded and the quantity won by each bid
 func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, auctionID string, round int, quantity int, txID string) error {
 
 	// get identity of submitting client
@@ -81,7 +80,7 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 
 	auction, err := s.QueryAuctionRound(ctx, auctionID, round)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error getting auction round from state")
 	}
 
 	// Check 1: the auction needs to be open for users to add their bid
@@ -89,9 +88,6 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 	if Status != "open" {
 		return fmt.Errorf("cannot join closed or ended auction")
 	}
-
-	// Check 2: the user needs to have joined the previous auction in order to
-	// add their bid
 
 	// create a composite key for bid using the transaction ID
 	bidKey, err := ctx.GetStub().CreateCompositeKey(bidKeyType, []string{auction.ItemSold, txID})
@@ -105,23 +101,24 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 
 		auctionLastRound, err := s.QueryAuctionRound(ctx, auctionID, previousRound)
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot pull previous auction round from state")
 		}
 
 		previousBidders := make(map[string]Bidder)
 		previousBidders = auctionLastRound.Bidders
 
+		// Check 2: the user needs to have joined the previous auction in order to
+		// add their bid
 		if _, previousBid := previousBidders[bidKey]; previousBid {
 
 			//bid is in the previous auction, no action to take
 		} else {
-				return fmt.Errorf("bidder needs to have joined previous round")
+			return fmt.Errorf("bidder needs to have joined previous round")
 		}
 	}
 
 	// check 3: check that bid has not changed on the public book
-
-	publicBid, err := s.QueryPublic(ctx, auction.ItemSold, bidKeyType,txID)
+	publicBid, err := s.QueryPublic(ctx, auction.ItemSold, bidKeyType, txID)
 	if err != nil {
 		return fmt.Errorf("failed to read bid hash from public order book: %v", err)
 	}
@@ -136,12 +133,11 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 		return fmt.Errorf("bid hash does not exist: %s", bidHash)
 	}
 
-	if !bytes.Equal(publicBid.Hash,bidHash) {
+	if !bytes.Equal(publicBid.Hash, bidHash) {
 		return fmt.Errorf("Bidder has changed their bid")
 	}
 
 	// now that all checks have passed, create new bid
-
 	NewBidder := Bidder{
 		Buyer:    clientID,
 		Org:      clientOrgID,
@@ -150,29 +146,33 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 	}
 
 	// add the bid to the new list of bidders
-
 	bidders := make(map[string]Bidder)
 	bidders = auction.Bidders
-	auction.Demand = auction.Demand + NewBidder.Quantity
 	bidders[bidKey] = NewBidder
 
+	newDemand := 0
+	for _, bidder := range bidders {
+		newDemand = newDemand + bidder.Quantity
+	}
+
+	auction.Demand = newDemand
 	// quantity won will depend on whether supply is the same as demand
 	if auction.Demand < auction.Quantity {
-		for bidKey, bidder := range bidders {
+		for bid, bidder := range bidders {
 			bidder.Won = bidder.Quantity
-			bidders[bidKey] = bidder
+			bidders[bid] = bidder
 		}
 	} else if auction.Quantity == 0 {
 		// quantity won is already zero
-	}	else {
-		for bidKey, bidder := range bidders {
-			bidder.Won = (bidder.Quantity * auction.Demand) / auction.Quantity
-			bidders[bidKey] = bidder
+	} else {
+		for bid, bidder := range bidders {
+			bidder.Won = (bidder.Quantity * auction.Quantity) / auction.Demand
+			bidders[bid] = bidder
 		}
 	}
 	auction.Bidders = bidders
 
-	// create a composite for auction using the round
+	// create a composite for the auction round
 	auctionKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(round)})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)
@@ -180,23 +180,18 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 
 	newAuctionJSON, _ := json.Marshal(auction)
 
+	// put the updated auction round in state
 	err = ctx.GetStub().PutState(auctionKey, newAuctionJSON)
 	if err != nil {
 		return fmt.Errorf("failed to update auction: %v", err)
 	}
-
-	// create event for new bid
-	err = ctx.GetStub().SetEvent("newBid", newAuctionJSON)
-		if err != nil {
-			return fmt.Errorf("event failed to register: %v", err)
-		}
 
 	return nil
 }
 
 // DeleteBid allows the submitter of the bid to delete their bid from the private data
 // collection and from private state
-func (s *SmartContract) DeleteBid(ctx contractapi.TransactionContextInterface, item string, txID string) (error) {
+func (s *SmartContract) DeleteBid(ctx contractapi.TransactionContextInterface, item string, txID string) error {
 
 	err := verifyClientOrgMatchesPeerOrg(ctx)
 	if err != nil {
@@ -226,20 +221,9 @@ func (s *SmartContract) DeleteBid(ctx contractapi.TransactionContextInterface, i
 	return nil
 }
 
+// NewPublicBid adds a bid to the public order book. This ensures
+// that bidders cannot change their bid during an active auction
 func (s *SmartContract) NewPublicBid(ctx contractapi.TransactionContextInterface, item string, txID string) error {
-
-	//bidders cannot submit if there is an open auction
-//	auction, err := s.QueryAuction(ctx, nil)
-//	if err != nil {
-//		return err
-//	}
-
-	// Find if round is closed. If a round is closed, declare found final.
-//	for _, auctionRound := range auction {
-//		if auctionRound.Status == "open" {
-//			return fmt.Errorf("cannot add public bid or ask an auction for the item is open")
-//		}
-//  }
 
 	// get the implicit collection name using the bidder's organization ID
 	collection, err := getCollectionName(ctx)
@@ -247,6 +231,7 @@ func (s *SmartContract) NewPublicBid(ctx contractapi.TransactionContextInterface
 		return fmt.Errorf("failed to get implicit collection name: %v", err)
 	}
 
+	// create composite key for the bid using the item and the txid
 	bidKey, err := ctx.GetStub().CreateCompositeKey(bidKeyType, []string{item, txID})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)

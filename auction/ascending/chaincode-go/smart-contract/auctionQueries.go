@@ -13,19 +13,20 @@ import (
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
 
-
+// BidReturn is the data type returned to an auction admin
 type BidReturn struct {
-	ID     	string 	`json:"id"`
-	Bid 		Bid   	`json:"bid"`
+	ID  string `json:"id"`
+	Bid *Bid   `json:"bid"`
 }
 
+// AskReturn is the data type returned to an auction admin
 type AskReturn struct {
-	ID     	string 	`json:"id"`
-	Ask 		Ask    	`json:"ask"`
+	ID  string `json:"id"`
+	Ask *Ask   `json:"ask"`
 }
 
-// QueryAuction allows all members of the channel to read a public auction
-func (s *SmartContract) QueryAuction(ctx contractapi.TransactionContextInterface, auctionID string) ([]*Auction, error) {
+// QueryAuction allows all members of the channel to read all rounds of a public auction
+func (s *SmartContract) QueryAuction(ctx contractapi.TransactionContextInterface, auctionID string) ([]*AuctionRound, error) {
 
 	resultsIterator, err := ctx.GetStub().GetStateByPartialCompositeKey("auction", []string{auctionID})
 	if err != nil {
@@ -33,27 +34,27 @@ func (s *SmartContract) QueryAuction(ctx contractapi.TransactionContextInterface
 	}
 	defer resultsIterator.Close()
 
-	var auctions []*Auction
+	var auctionRounds []*AuctionRound
 	for resultsIterator.HasNext() {
 		queryResponse, err := resultsIterator.Next()
 		if err != nil {
 			return nil, err
 		}
 
-		var auction Auction
-		err = json.Unmarshal(queryResponse.Value, &auction)
+		var auctionRound AuctionRound
+		err = json.Unmarshal(queryResponse.Value, &auctionRound)
 		if err != nil {
 			return nil, err
 		}
 
-		auctions = append(auctions, &auction)
+		auctionRounds = append(auctionRounds, &auctionRound)
 	}
 
-	return auctions, nil
+	return auctionRounds, nil
 }
 
-// QueryAuction allows all members of the channel to read a public auction
-func (s *SmartContract) QueryAuctionRound(ctx contractapi.TransactionContextInterface, auctionID string, round int) (*Auction, error) {
+// QueryAuctionRound allows all members of the channel to read a public auction round
+func (s *SmartContract) QueryAuctionRound(ctx contractapi.TransactionContextInterface, auctionID string, round int) (*AuctionRound, error) {
 
 	auctionKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(round)})
 	if err != nil {
@@ -68,16 +69,16 @@ func (s *SmartContract) QueryAuctionRound(ctx contractapi.TransactionContextInte
 		return nil, fmt.Errorf("auction does not exist")
 	}
 
-	var auction *Auction
-	err = json.Unmarshal(auctionJSON, &auction)
+	var auctionRound *AuctionRound
+	err = json.Unmarshal(auctionJSON, &auctionRound)
 	if err != nil {
 		return nil, err
 	}
 
-	return auction, nil
+	return auctionRound, nil
 }
 
-// QueryBid allows the submitter of the bid to read their bid from public state
+// QueryBid allows the submitter of the bid or an auction admin to read their bid from private state
 func (s *SmartContract) QueryBid(ctx contractapi.TransactionContextInterface, item string, txID string) (*Bid, error) {
 
 	err := verifyClientOrgMatchesPeerOrg(ctx)
@@ -95,6 +96,7 @@ func (s *SmartContract) QueryBid(ctx contractapi.TransactionContextInterface, it
 		return nil, fmt.Errorf("failed to create composite key: %v", err)
 	}
 
+	// only the bid owner or the auction admin can read a bid
 	err = s.checkBidOwner(ctx, collection, bidKey)
 	if err != nil {
 		err = ctx.GetClientIdentity().AssertAttributeValue("role", "auctionAdmin")
@@ -120,7 +122,7 @@ func (s *SmartContract) QueryBid(ctx contractapi.TransactionContextInterface, it
 	return bid, nil
 }
 
-// QueryBid allows the submitter of the bid to read their bid from public state
+// QueryAsk allows a seller or an auction admin to read their bid from private state
 func (s *SmartContract) QueryAsk(ctx contractapi.TransactionContextInterface, item string, txID string) (*Ask, error) {
 
 	err := verifyClientOrgMatchesPeerOrg(ctx)
@@ -163,13 +165,15 @@ func (s *SmartContract) QueryAsk(ctx contractapi.TransactionContextInterface, it
 	return ask, nil
 }
 
-// QueryBids returns a list of bids from certain items
+// QueryBids returns all bids from a private data collection for a certain item.
+// this function is used by auction admins to add bids to a open auction
 func (s *SmartContract) QueryBids(ctx contractapi.TransactionContextInterface, item string) ([]BidReturn, error) {
 
+	// the function can only be used by an auction admin
 	err := ctx.GetClientIdentity().AssertAttributeValue("role", "auctionAdmin")
-		if err != nil {
-			return nil, fmt.Errorf("submitting client needs to be an auction admin")
-		}
+	if err != nil {
+		return nil, fmt.Errorf("submitting client needs to be an auction admin")
+	}
 
 	err = verifyClientOrgMatchesPeerOrg(ctx)
 	if err != nil {
@@ -181,12 +185,14 @@ func (s *SmartContract) QueryBids(ctx contractapi.TransactionContextInterface, i
 		return nil, fmt.Errorf("failed to get implicit collection name: %v", err)
 	}
 
+	// return bids using the item
 	resultsIterator, err := ctx.GetStub().GetPrivateDataByPartialCompositeKey(collection, bidKeyType, []string{item})
 	if err != nil {
 		return nil, err
 	}
 	defer resultsIterator.Close()
 
+	// return the bid and the transaction id, so that the bid can be submitted
 	var bidReturns []BidReturn
 	for resultsIterator.HasNext() {
 		queryResponse, err := resultsIterator.Next()
@@ -196,19 +202,19 @@ func (s *SmartContract) QueryBids(ctx contractapi.TransactionContextInterface, i
 
 		_, keyParts, Err := ctx.GetStub().SplitCompositeKey(queryResponse.Key)
 		if Err != nil {
-			return  nil, err
+			return nil, err
 		}
 
 		txID := keyParts[1]
 
-		var bid Bid
-		err = json.Unmarshal(queryResponse.Value, bid)
+		var bid *Bid
+		err = json.Unmarshal(queryResponse.Value, &bid)
 		if err != nil {
 			return nil, err
 		}
 
 		bidReturn := BidReturn{
-			ID: txID,
+			ID:  txID,
 			Bid: bid,
 		}
 
@@ -218,14 +224,14 @@ func (s *SmartContract) QueryBids(ctx contractapi.TransactionContextInterface, i
 	return bidReturns, nil
 }
 
-
-// QueryBids returns a list of aks from certain items
+// QueryAsks returns all asks from a private data collection for a certain item.
+// this function is used by auction admins to add asks to a open auction
 func (s *SmartContract) QueryAsks(ctx contractapi.TransactionContextInterface, item string) ([]AskReturn, error) {
 
 	err := ctx.GetClientIdentity().AssertAttributeValue("role", "auctionAdmin")
-		if err != nil {
-			return nil, fmt.Errorf("submitting client needs to be an auction admin")
-		}
+	if err != nil {
+		return nil, fmt.Errorf("submitting client needs to be an auction admin")
+	}
 
 	err = verifyClientOrgMatchesPeerOrg(ctx)
 	if err != nil {
@@ -237,12 +243,14 @@ func (s *SmartContract) QueryAsks(ctx contractapi.TransactionContextInterface, i
 		return nil, fmt.Errorf("failed to get implicit collection name: %v", err)
 	}
 
+	// return ask using the item
 	resultsIterator, err := ctx.GetStub().GetPrivateDataByPartialCompositeKey(collection, askKeyType, []string{item})
 	if err != nil {
 		return nil, err
 	}
 	defer resultsIterator.Close()
 
+	// return the ask and the transaction id, so that the bid can be submitted
 	var askReturns []AskReturn
 	for resultsIterator.HasNext() {
 		queryResponse, err := resultsIterator.Next()
@@ -252,19 +260,19 @@ func (s *SmartContract) QueryAsks(ctx contractapi.TransactionContextInterface, i
 
 		_, keyParts, Err := ctx.GetStub().SplitCompositeKey(queryResponse.Key)
 		if Err != nil {
-			return  nil, Err
+			return nil, Err
 		}
 
 		txID := keyParts[1]
 
-		var ask Ask
-		err = json.Unmarshal(queryResponse.Value, ask)
+		var ask *Ask
+		err = json.Unmarshal(queryResponse.Value, &ask)
 		if err != nil {
 			return nil, err
 		}
 
 		askReturn := AskReturn{
-			ID: txID,
+			ID:  txID,
 			Ask: ask,
 		}
 
@@ -275,10 +283,9 @@ func (s *SmartContract) QueryAsks(ctx contractapi.TransactionContextInterface, i
 	return askReturns, nil
 }
 
-
-// queryAllBids is an internal function that is used to determine if a winning
-// has yet to be revealed for the round bid has yet to be revealed
-func queryAllBids(ctx contractapi.TransactionContextInterface, auctionPrice int, item string, bidders map[string]Bidder) error {
+// checkForHigherBid is an internal function that is used to determine if
+// there is a higher bid that has yet to be added to an auction round
+func checkForHigherBid(ctx contractapi.TransactionContextInterface, auctionPrice int, item string, bidders map[string]Bidder) error {
 
 	// Get MSP ID of peer org
 	peerMSPID, err := shim.GetMSPID()
@@ -353,9 +360,9 @@ func queryAllBids(ctx contractapi.TransactionContextInterface, auctionPrice int,
 	return error
 }
 
-// queryAllAsks is an internal function that is used to determine if a winning
-// has yet to be revealed for the round bid has yet to be revealed
-func queryAllAsks(ctx contractapi.TransactionContextInterface, auctionPrice int, item string, sellers map[string]Seller) error {
+// checkForLowerAsk is an internal function that is used to determine
+// is there is a lower ask that has not yet been added to the round
+func checkForLowerAsk(ctx contractapi.TransactionContextInterface, auctionPrice int, item string, sellers map[string]Seller) error {
 
 	// Get MSP ID of peer org
 	peerMSPID, err := shim.GetMSPID()
@@ -430,7 +437,7 @@ func queryAllAsks(ctx contractapi.TransactionContextInterface, auctionPrice int,
 	return error
 }
 
-// QueryPublicAsk you to read a bid or ask on the public order book
+// QueryPublic allows you to read the public hash on the order book
 func (s *SmartContract) QueryPublic(ctx contractapi.TransactionContextInterface, item string, askSell string, txID string) (*BidAskHash, error) {
 
 	bidAskKey, err := ctx.GetStub().CreateCompositeKey(askSell, []string{item, txID})
