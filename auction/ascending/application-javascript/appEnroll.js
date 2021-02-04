@@ -6,6 +6,7 @@ const FabricCAServices = require('fabric-ca-client');
 const path = require('path');
 const { buildCCPOrg1, buildCCPOrg2, buildWallet } = require('../../../test-application/javascript/AppUtil.js');
 const { buildCAClient, registerAndEnrollUser, enrollAdmin } = require('../../../test-application/javascript/CAUtil.js');
+const { registerEnrollAuctionAdmin } = require('./lib/registerAdmin.js');
 
 const mspOrg1 = 'Org1MSP';
 const mspOrg2 = 'Org2MSP';
@@ -64,12 +65,14 @@ async function main() {
 
   // register and enrolling buyer and sellers from org2
   try {
-    console.log('\n--> Enrolling buyers and sellers from Org2');
+    console.log('\n--> Enrolling buyers and sellers from Org1');
     var users = ["bidder3", "bidder4", "bidder5", "seller3", "seller4"];
     var userID;
     for (userID of users) {
       await registerAndEnrollUser(caOrg1Client, walletOrg1, mspOrg1,userID, 'org1.department1');
     }
+
+    await registerEnrollAuctionAdmin(caOrg1Client, walletOrg1, mspOrg1, 'auctionAdmin', 'org1.department1');
 
   } catch (error) {
     console.error(`Error enrolling Org2 identities: ${error}`);

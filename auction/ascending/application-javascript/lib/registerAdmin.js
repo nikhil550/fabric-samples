@@ -9,7 +9,7 @@
 const adminUserId = 'admin';
 
 exports.registerEnrollAuctionAdmin = async (caClient, wallet, orgMspId, userId, affiliation) => {
-
+	
 	try {
 		// Check to see if we've already enrolled the user
 		const userIdentity = await wallet.get(userId);

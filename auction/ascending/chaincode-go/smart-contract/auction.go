@@ -25,7 +25,7 @@ type AuctionRound struct {
 	ItemSold string            `json:"item"`
 	Price    int               `json:"price"`
 	Quantity int               `json:"quantity"`
-	sold		 int               `json:"allocated"`
+	Sold     int               `json:"allocated"`
 	Demand   int               `json:"demand"`
 	Sellers  map[string]Seller `json:"sellers"`
 	Bidders  map[string]Bidder `json:"bidders"`
@@ -68,7 +68,7 @@ type Seller struct {
 	Seller   string `json:"seller"`
 	Org      string `json:"org"`
 	Quantity int    `json:"quantity"`
-	Sold		 int		`json:"sold"`
+	Sold     int    `json:"sold"`
 }
 
 // incrementAmount is the price increase of each new round of the auction
@@ -125,7 +125,7 @@ func (s *SmartContract) CreateAuction(ctx contractapi.TransactionContextInterfac
 	}
 
 	// create an event to notify buyers and sellers of a new auction
-	err = ctx.GetStub().SetEvent("CreateAuction", auctionJSON)
+	err = ctx.GetStub().SetEvent("CreateAuction", []byte(auctionID))
 	if err != nil {
 		return fmt.Errorf("event failed to register: %v", err)
 	}
@@ -161,12 +161,10 @@ func (s *SmartContract) CreateNewRound(ctx contractapi.TransactionContextInterfa
 
 	// If all three checks have passed, create a new round
 
-	sellers := make(map[string]Seller)
 	bidders := make(map[string]Bidder)
 
 	auction.Round = newRound
 	auction.Price = auction.Price + incrementAmount
-	auction.Sellers = sellers
 	auction.Bidders = bidders
 	auction.Quantity = 0
 	auction.Demand = 0
@@ -183,7 +181,7 @@ func (s *SmartContract) CreateNewRound(ctx contractapi.TransactionContextInterfa
 
 	err = ctx.GetStub().PutState(newAuctionRoundKey, newAuctionRoundJSON)
 	if err != nil {
-		return fmt.Errorf("failed to close auction: %v", err)
+		return fmt.Errorf("failed to create new auction round: %v", err)
 	}
 
 	// create an event to notify buyers and sellers of a new round
@@ -215,7 +213,7 @@ func (s *SmartContract) CloseAuctionRound(ctx contractapi.TransactionContextInte
 	// be clossed
 	err = s.closeAuctionChecks(ctx, auction)
 	if err != nil {
-		return fmt.Errorf("Cannot closer round, round and auction is still active")
+		return fmt.Errorf("Cannot close round, round and auction is still active")
 	}
 
 	auction.Status = string("closed")
@@ -235,7 +233,7 @@ func (s *SmartContract) CloseAuctionRound(ctx contractapi.TransactionContextInte
 	}
 
 	// create an event that a round has closed
-	err = ctx.GetStub().SetEvent("closeRound", []byte(auctionID))
+	err = ctx.GetStub().SetEvent("CloseRound", []byte(auctionID))
 	if err != nil {
 		return fmt.Errorf("event failed to register: %v", err)
 	}
