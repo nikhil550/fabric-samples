@@ -8,21 +8,21 @@
 
 const { prettyJSONString } = require('../../../test-application/javascript/AppUtil.js');
 const AuctionRound = require('./lib/auctionRound.js');
-const { initGatewayForOrg2 } = require('./lib/connect.js');
+const { initGatewayForOrg2, sleep } = require('./lib/connect.js');
 
 const channelName = 'mychannel';
 const chaincodeName = 'auction';
 
 const item = 'tickets';
-const auctionID = 'auction1';
+const auctionID = 'auction3';
 
 const mvccText = /MVCC_READ_CONFLICT/
 
 async function main() {
   try {
 
-    const gatewayAdmin = await initGatewayForOrg2("auctionAdmin");
-    const network = await gatewayAdmin.getNetwork(channelName);
+    const adminGateway = await initGatewayForOrg2("auctionAdmin");
+    const network = await adminGateway.getNetwork(channelName);
     const contract = network.getContract(chaincodeName);
 
     try {
@@ -55,12 +55,15 @@ async function main() {
                       auction[round] = auctionRound;
                       console.log(`*** New auction round: ${round}`);
                       console.log(auction[round]);
+
+                      if (round > 0) {
+                        console.log(`*** Previous round: ${round}`);
+                        console.log(auction[round-1]);
+                      }
                     } else {
                       auction[round].updateAuction(JSON.stringify(auctionJSON[round].demand), JSON.stringify(auctionJSON[round].quantity));
                     };
                   };
-                  console.log('*** latest Auction:');
-                  console.log(auction);
 
                   // add bids and asks if the auction has not yet beed joined
                   for (let round = 0; round < auction.length; ++round) {
@@ -71,7 +74,9 @@ async function main() {
                       let bids = JSON.parse(result);
                       for (let i = 0; i < bids.length; ++i) {
                         if (parseInt(auction[round].price) <= parseInt(bids[i].bid.price)) {
-                          console.log(`*** Submitting bid for ${bids[i].bid.quantity} ${round} for round ${round}`);
+
+                          await sleep(Math.floor(Math.random() * 5000)+1000));
+                          console.log(`*** Submitting bid for ${bids[i].bid.quantity} ${item} for round ${round}`);
 
                           // submit the bid auction
                           setTimeout(async function bid() {
@@ -81,12 +86,12 @@ async function main() {
                             } catch (error) {
                               if (error.toString().match(mvccText) != null) {
                                 console.log(error.name);
-                                setTimeout(() => { bid() }, 3000);
+                                setTimeout(() => { bid() }, 5000);
                               } else {
                                 console.log(`<-- Failed to submit bid: ${error}`);
                               };
                             };
-                          }, 3000)
+                          }, 5000)
                         };
                       };
 
@@ -95,6 +100,8 @@ async function main() {
                       let asks = JSON.parse(result);
                       for (let i = 0; i < asks.length; ++i) {
                         if (parseInt(auction[round].price) >= parseInt(asks[i].ask.price) && (parseInt(auction[round-1].price) < parseInt(asks[i].ask.price))) {
+
+                          await sleep(Math.floor(Math.random() * 7000));
                           console.log(`*** Submitting ask for ${asks[i].ask.quantity} ${item} for round ${round}`);
 
                           // submit the ask auction
@@ -105,12 +112,12 @@ async function main() {
                             } catch (error) {
                               if (error.toString().match(mvccText) != null) {
                                 console.log(error.name);
-                                setTimeout(() => { ask() }, 3000);
+                                setTimeout(() => { ask() }, 5000);
                               } else {
                                 console.log(`<-- Failed to subit ask: ${error}`);
                               };
                             };
-                          }, 3000)
+                          }, 5000)
                         };
                       };
                       auction[round].join();
@@ -135,7 +142,7 @@ async function main() {
                           console.log(`<-- Failed to create new round: ${error}`);
                         }
                       };
-                    }, 3000)
+                    }, 5000)
                   };
 
                   // go through rounds and try to close if supply
@@ -201,7 +208,7 @@ async function main() {
             let result = await contract.evaluateTransaction('QueryAuction', AuctionID);
             console.log('*** Result: Final auction round: ' + prettyJSONString(result.toString()));
             contract.removeContractListener(auctionListener);
-            gatewayAdmin.disconnect()
+            adminGateway.disconnect()
 
             break;
 
@@ -209,7 +216,7 @@ async function main() {
       };
 
       await contract.addContractListener(auctionListener);
-      console.log(`<-- added contract listener`);
+      console.log(`<-- added auction listener`);
 
 
     } catch (eventError) {
