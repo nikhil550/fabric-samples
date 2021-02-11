@@ -25,7 +25,7 @@ type AuctionRound struct {
 	ItemSold string            `json:"item"`
 	Price    int               `json:"price"`
 	Quantity int               `json:"quantity"`
-	Sold     int               `json:"allocated"`
+	Sold     int               `json:"sold"`
 	Demand   int               `json:"demand"`
 	Sellers  map[string]Seller `json:"sellers"`
 	Bidders  map[string]Bidder `json:"bidders"`
@@ -69,6 +69,7 @@ type Seller struct {
 	Org      string `json:"org"`
 	Quantity int    `json:"quantity"`
 	Sold     int    `json:"sold"`
+	Unsold   int    `json:"unsold"`
 }
 
 // incrementAmount is the price increase of each new round of the auction
@@ -166,7 +167,6 @@ func (s *SmartContract) CreateNewRound(ctx contractapi.TransactionContextInterfa
 	auction.Round = newRound
 	auction.Price = auction.Price + incrementAmount
 	auction.Bidders = bidders
-	auction.Quantity = 0
 	auction.Demand = 0
 
 	newAuctionRoundJSON, err := json.Marshal(auction)

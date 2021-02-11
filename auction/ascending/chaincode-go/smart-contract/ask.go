@@ -103,34 +103,56 @@ func (s *SmartContract) SubmitAsk(ctx contractapi.TransactionContextInterface, a
 	sellers := make(map[string]Seller)
 	sellers = auction.Sellers
 	sellers[askKey] = NewSeller
-	auction.Sellers = sellers
 
-	// update the auction round supply
 	newQuantity := 0
 	for _, seller := range sellers {
 		newQuantity = newQuantity + seller.Quantity
 	}
-
 	auction.Quantity = newQuantity
 
-	// Update the list of winners
-	bidders := make(map[string]Bidder)
-	bidders = auction.Bidders
-
-	// update the quantity wom
-	if auction.Demand < auction.Quantity {
-		for bidKey, bidder := range bidders {
-			bidder.Won = bidder.Quantity
-			bidders[bidKey] = bidder
-		}
+	// If demand <= sold, no need to update the asks
+	if auction.Demand <= auction.Sold {
+		auction.Sellers = sellers
 	} else {
-		for bidKey, bidder := range bidders {
-			bidder.Won = (bidder.Quantity * auction.Quantity) / auction.Demand
-			bidders[bidKey] = bidder
-		}
-	}
 
-	auction.Bidders = bidders
+		bidders := make(map[string]Bidder)
+		bidders = auction.Bidders
+
+		previousSold := auction.Sold
+
+		newSold := 0
+		if auction.Quantity >= auction.Demand {
+			newSold = auction.Demand
+			remainingSold := newSold - previousSold
+			for bid, bidder := range bidders {
+				bidder.Won = bidder.Quantity
+				bidders[bid] = bidder
+			}
+			totalUnsold := 0
+			for _, seller := range sellers {
+				totalUnsold = totalUnsold + seller.Unsold
+			}
+			for ask, seller := range sellers {
+				seller.Sold = seller.Sold + (seller.Unsold*remainingSold)/totalUnsold
+				seller.Unsold = seller.Quantity - seller.Sold
+				sellers[ask] = seller
+			}
+		} else {
+			newSold = auction.Quantity
+			for bid, bidder := range bidders {
+				bidder.Won = (bidder.Quantity * auction.Sold) / auction.Demand
+				bidders[bid] = bidder
+			}
+			for ask, seller := range sellers {
+				seller.Sold = seller.Quantity
+				seller.Unsold = 0
+				sellers[ask] = seller
+			}
+		}
+		auction.Sold = newSold
+		auction.Bidders = bidders
+		auction.Sellers = sellers
+	}
 
 	// create a composite key for auction round
 	auctionKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(round)})

@@ -51,14 +51,15 @@ async function main() {
                         JSON.stringify(auctionJSON[round].price),
                         JSON.stringify(auctionJSON[round].item),
                         JSON.stringify(auctionJSON[round].demand),
-                        JSON.stringify(auctionJSON[round].quantity));
+                        JSON.stringify(auctionJSON[round].quantity),
+                        JSON.stringify(auctionJSON[round].sold));
                       auction[round] = auctionRound;
                       console.log(`*** New auction round: ${round}`);
                       console.log(auction[round]);
 
                       if (round > 0) {
                         console.log(`*** Previous round: ${round}`);
-                        console.log(auction[round-1]);
+                        console.log(auction[round - 1]);
                       }
                     } else {
                       auction[round].updateAuction(JSON.stringify(auctionJSON[round].demand), JSON.stringify(auctionJSON[round].quantity));
@@ -75,11 +76,10 @@ async function main() {
                       for (let i = 0; i < bids.length; ++i) {
                         if (parseInt(auction[round].price) <= parseInt(bids[i].bid.price)) {
 
-                          await sleep(Math.floor(Math.random() * 5000)+1000));
                           console.log(`*** Submitting bid for ${bids[i].bid.quantity} ${item} for round ${round}`);
-
                           // submit the bid auction
                           setTimeout(async function bid() {
+                            await sleep(Math.floor(Math.random() * 5000) + 1000);
                             try {
                               let newBid = contract.createTransaction('SubmitBid');
                               await newBid.submit(AuctionID, round, bids[i].bid.quantity, bids[i].id);
@@ -99,13 +99,12 @@ async function main() {
                       result = await contract.evaluateTransaction('QueryAsks', item);
                       let asks = JSON.parse(result);
                       for (let i = 0; i < asks.length; ++i) {
-                        if (parseInt(auction[round].price) >= parseInt(asks[i].ask.price) && (parseInt(auction[round-1].price) < parseInt(asks[i].ask.price))) {
+                        if (parseInt(auction[round].price) >= parseInt(asks[i].ask.price) && (parseInt(auction[round - 1].price) < parseInt(asks[i].ask.price))) {
 
-                          await sleep(Math.floor(Math.random() * 7000));
                           console.log(`*** Submitting ask for ${asks[i].ask.quantity} ${item} for round ${round}`);
-
                           // submit the ask auction
                           setTimeout(async function ask() {
+                            await sleep(Math.floor(Math.random() * 5000) + 1000);
                             try {
                               let newAsk = contract.createTransaction('SubmitAsk');
                               await newAsk.submit(AuctionID, round, asks[i].ask.quantity, asks[i].id);

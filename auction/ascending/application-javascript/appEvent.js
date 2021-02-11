@@ -13,8 +13,8 @@ const { bid, ask } = require('./lib/bidAsk.js');
 
 const channelName = 'mychannel';
 const chaincodeName = 'auction';
-const item = 'good10';
-const auctionID = 'auction10';
+const item = 'good2';
+const auctionID = 'auction2';
 
 
 async function main() {
@@ -86,7 +86,8 @@ async function main() {
                         JSON.stringify(auctionJSON[round].price),
                         JSON.stringify(auctionJSON[round].item),
                         JSON.stringify(auctionJSON[round].demand),
-                        JSON.stringify(auctionJSON[round].quantity));
+                        JSON.stringify(auctionJSON[round].quantity),
+                        JSON.stringify(auctionJSON[round].sold));
                       auction[round] = auctionRound;
                       console.log(`*** New auction round: ${round}`);
                       console.log(auction[round]);
@@ -106,6 +107,7 @@ async function main() {
                       let bids = JSON.parse(result);
                       for (let i = 0; i < bids.length; ++i) {
                         if (parseInt(auction[round].price) <= parseInt(bids[i].bid.price)) {
+                          console.log(`*** Submitting bid for ${bids[i].bid.quantity} ${item} for round ${round}`);
                           // submit the bid auction
                           try {
                             let newBid = contract.createTransaction('SubmitBid');
@@ -135,6 +137,25 @@ async function main() {
                     };
                   };
 
+                  // query auction again after submitting bids
+                  auctionResult = await contract.evaluateTransaction('QueryAuction', AuctionID);
+                  console.log(auctionJSON);
+                  // update the current auction
+                  for (let round = 0; round < auctionJSON.length; ++round) {
+
+                    if (auction[round] == undefined) {
+                      let auctionRound = new AuctionRound(JSON.stringify(auctionJSON[round].id),
+                        JSON.stringify(auctionJSON[round].round),
+                        JSON.stringify(auctionJSON[round].price),
+                        JSON.stringify(auctionJSON[round].item),
+                        JSON.stringify(auctionJSON[round].demand),
+                        JSON.stringify(auctionJSON[round].quantity),
+                        JSON.stringify(auctionJSON[round].sold));
+                      auction[round] = auctionRound;
+                    } else {
+                      auction[round].updateAuction(JSON.stringify(auctionJSON[round].demand), JSON.stringify(auctionJSON[round].quantity), JSON.stringify(auctionJSON[round].sold));
+                    };
+                  };
                   // see if demand is greater than supply for the final round.
                   // if so, create a new round
                   let finalRound = auction.length - 1;
