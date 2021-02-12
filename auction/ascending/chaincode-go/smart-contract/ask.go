@@ -119,9 +119,8 @@ func (s *SmartContract) SubmitAsk(ctx contractapi.TransactionContextInterface, a
 		bidders = auction.Bidders
 
 		previousSold := auction.Sold
-
 		newSold := 0
-		if auction.Quantity >= auction.Demand {
+		if auction.Quantity > auction.Demand {
 			newSold = auction.Demand
 			remainingSold := newSold - previousSold
 			for bid, bidder := range bidders {

@@ -13,8 +13,8 @@ const { bid, ask } = require('./lib/bidAsk.js');
 
 const channelName = 'mychannel';
 const chaincodeName = 'auction';
-const item = 'good2';
-const auctionID = 'auction2';
+const item = 'good9';
+const auctionID = 'auction9';
 
 
 async function main() {
@@ -91,12 +91,15 @@ async function main() {
                       auction[round] = auctionRound;
                       console.log(`*** New auction round: ${round}`);
                       console.log(auction[round]);
+
+                      if (round > 0) {
+                        console.log(`*** Previous round: ${round}`);
+                        console.log(auction[round - 1]);
+                      }
                     } else {
-                      auction[round].updateAuction(JSON.stringify(auctionJSON[round].demand), JSON.stringify(auctionJSON[round].quantity));
+                      auction[round].updateAuction(JSON.stringify(auctionJSON[round].demand), JSON.stringify(auctionJSON[round].quantity), JSON.stringify(auctionJSON[round].sold));
                     };
                   };
-                  console.log('*** latest Auction:');
-                  console.log(auction);
 
                   // add bids and asks if the auction has not yet beed joined
                   for (let round = 0; round < auction.length; ++round) {
@@ -139,7 +142,7 @@ async function main() {
 
                   // query auction again after submitting bids
                   auctionResult = await contract.evaluateTransaction('QueryAuction', AuctionID);
-                  console.log(auctionJSON);
+                  auctionJSON = JSON.parse(auctionResult);
                   // update the current auction
                   for (let round = 0; round < auctionJSON.length; ++round) {
 
@@ -186,7 +189,7 @@ async function main() {
                   };
                   setTimeout(() => { auctionLoop(auction) }, 5000, auction);
                 } catch (error) {
-                  console.log(`<-- auction loop failed: ${error}`);
+                 console.log(`<-- auction loop failed: ${error}`);
                 }
               }, 5000, auction)
 

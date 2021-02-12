@@ -49,17 +49,18 @@ async function main() {
                         JSON.stringify(auctionJSON[round].price),
                         JSON.stringify(auctionJSON[round].item),
                         JSON.stringify(auctionJSON[round].demand),
-                        JSON.stringify(auctionJSON[round].quantity));
+                        JSON.stringify(auctionJSON[round].quantity),
+                        JSON.stringify(auctionJSON[round].sold));
                       auction[round] = auctionRound;
                       console.log(`*** New auction round: ${round}`);
                       console.log(auction[round]);
 
                       if (round > 0) {
-                        console.log(`*** Previous round: ${round}`);
-                        console.log(auction[round-1]);
+                        console.log(`*** Previous round: ${round - 1}`);
+                        console.log(auction[round - 1]);
                       }
                     } else {
-                      auction[round].updateAuction(JSON.stringify(auctionJSON[round].demand), JSON.stringify(auctionJSON[round].quantity));
+                      auction[round].updateAuction(JSON.stringify(auctionJSON[round].demand), JSON.stringify(auctionJSON[round].quantity), JSON.stringify(auctionJSON[round].sold));
                     };
                   };
 
@@ -75,20 +76,23 @@ async function main() {
 
                           console.log(`*** Submitting bid for ${bids[i].bid.quantity} ${item} for round ${round}`);
                           // submit the bid auction
-                          setTimeout(async function bid() {
-                            await sleep(Math.floor(Math.random() * 5000)+1000);
+                          async function bid() {
+
                             try {
+
+                              await sleep(Math.floor(Math.random() * 5000) + 1000);
                               let newBid = contract.createTransaction('SubmitBid');
                               await newBid.submit(AuctionID, round, bids[i].bid.quantity, bids[i].id);
+
                             } catch (error) {
                               if (error.toString().match(mvccText) != null) {
-                                console.log(error.name);
                                 setTimeout(() => { bid() }, 5000);
                               } else {
                                 console.log(`<-- Failed to submit bid: ${error}`);
                               };
                             };
-                          }, 5000)
+                          };
+                          await bid();
                         };
                       };
 
@@ -96,27 +100,49 @@ async function main() {
                       result = await contract.evaluateTransaction('QueryAsks', item);
                       let asks = JSON.parse(result);
                       for (let i = 0; i < asks.length; ++i) {
-                        if (parseInt(auction[round].price) >= parseInt(asks[i].ask.price) && (parseInt(auction[round-1].price) < parseInt(asks[i].ask.price))) {
+                        if (parseInt(auction[round].price) >= parseInt(asks[i].ask.price) && (parseInt(auction[round - 1].price) < parseInt(asks[i].ask.price))) {
 
                           console.log(`*** Submitting ask for ${asks[i].ask.quantity} ${item} for round ${round}`);
                           // submit the ask auction
-                          setTimeout(async function ask() {
-                            await sleep(Math.floor(Math.random() * 5000)+1000);
+                          async function ask() {
+
                             try {
+
+                              await sleep(Math.floor(Math.random() * 5000) + 1000);
                               let newAsk = contract.createTransaction('SubmitAsk');
                               await newAsk.submit(AuctionID, round, asks[i].ask.quantity, asks[i].id);
                             } catch (error) {
                               if (error.toString().match(mvccText) != null) {
-                                console.log(error.name);
                                 setTimeout(() => { ask() }, 5000);
                               } else {
-                                console.log(`<-- Failed to subit ask: ${error}`);
+                                console.log(`<-- Failed to submit ask: ${error}`);
                               };
                             };
-                          }, 5000)
+                          };
+                          await ask();
                         };
                       };
                       auction[round].join();
+                    };
+                  };
+
+                  // query auction again after submitting bids
+                  auctionResult = await contract.evaluateTransaction('QueryAuction', AuctionID);
+                  auctionJSON = JSON.parse(auctionResult);
+                  // update the current auction
+                  for (let round = 0; round < auctionJSON.length; ++round) {
+
+                    if (auction[round] == undefined) {
+                      let auctionRound = new AuctionRound(JSON.stringify(auctionJSON[round].id),
+                        JSON.stringify(auctionJSON[round].round),
+                        JSON.stringify(auctionJSON[round].price),
+                        JSON.stringify(auctionJSON[round].item),
+                        JSON.stringify(auctionJSON[round].demand),
+                        JSON.stringify(auctionJSON[round].quantity),
+                        JSON.stringify(auctionJSON[round].sold));
+                      auction[round] = auctionRound;
+                    } else {
+                      auction[round].updateAuction(JSON.stringify(auctionJSON[round].demand), JSON.stringify(auctionJSON[round].quantity), JSON.stringify(auctionJSON[round].sold));
                     };
                   };
 
@@ -125,7 +151,7 @@ async function main() {
                   let finalRound = auction.length - 1;
                   if (parseInt(auction[finalRound].demand) > parseInt(auction[finalRound].quantity)) {
 
-                    setTimeout(async function newRound() {
+                    async function newRound() {
                       try {
                         let transaction = contract.createTransaction('CreateNewRound');
                         let newRound = auction.length;
@@ -138,7 +164,8 @@ async function main() {
                           console.log(`<-- Failed to create new round: ${error}`);
                         }
                       };
-                    }, 5000)
+                    };
+                    await newRound();
                   };
 
                   // go through rounds and try to close if supply
@@ -147,7 +174,7 @@ async function main() {
                     if (parseInt(auction[round].demand) <= parseInt(auction[round].quantity) && (parseInt(auction[round].quantity) != 0)) {
 
                       // try to close the auction
-                      setTimeout(async function closeRound() {
+                      async function closeRound() {
                         try {
                           let closeRound = contract.createTransaction('CloseAuctionRound');
                           await closeRound.submit(AuctionID, round);
@@ -159,7 +186,8 @@ async function main() {
                             console.log(`<-- Failed to close round: ${error}`);
                           };
                         };
-                      }, 5000)
+                      };
+                      await closeRound();
                     };
                   };
                   setTimeout(() => { auctionLoop(auction) }, 5000, auction);
@@ -181,7 +209,7 @@ async function main() {
             let auctionResult = await contract.evaluateTransaction('QueryAuction', AuctionID);
             console.log('*** Full Closed Auction: ' + prettyJSONString(auctionResult.toString()));
 
-            setTimeout(async function endAuction() {
+            async function endAuction() {
               try {
                 let endAuction = contract.createTransaction('EndAuction');
                 await endAuction.submit(AuctionID);
@@ -194,7 +222,8 @@ async function main() {
                 };
 
               };
-            }, 5000)
+            };
+            await endAuction();
 
             break;
 
