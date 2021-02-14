@@ -80,13 +80,13 @@ async function main() {
 
                             try {
 
-                              await sleep(Math.floor(Math.random() * 5000) + 1000);
+                              await sleep(Math.floor(Math.random() * 5000) + 3000);
                               let newBid = contract.createTransaction('SubmitBid');
                               await newBid.submit(AuctionID, round, bids[i].bid.quantity, bids[i].id);
 
                             } catch (error) {
                               if (error.toString().match(mvccText) != null) {
-                                setTimeout(() => { bid() }, 5000);
+                                await bid();
                               } else {
                                 console.log(`<-- Failed to submit bid: ${error}`);
                               };
@@ -108,12 +108,12 @@ async function main() {
 
                             try {
 
-                              await sleep(Math.floor(Math.random() * 5000) + 1000);
+                              await sleep(Math.floor(Math.random() * 5000) + 3000);
                               let newAsk = contract.createTransaction('SubmitAsk');
                               await newAsk.submit(AuctionID, round, asks[i].ask.quantity, asks[i].id);
                             } catch (error) {
                               if (error.toString().match(mvccText) != null) {
-                                setTimeout(() => { ask() }, 5000);
+                                await ask();
                               } else {
                                 console.log(`<-- Failed to submit ask: ${error}`);
                               };
@@ -184,6 +184,7 @@ async function main() {
                             setTimeout(() => { closeRound() }, 5000);
                           } else {
                             console.log(`<-- Failed to close round: ${error}`);
+                            await sleep(Math.floor(Math.random() * 5000) + 3000);
                           };
                         };
                       };

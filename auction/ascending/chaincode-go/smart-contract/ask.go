@@ -91,6 +91,7 @@ func (s *SmartContract) SubmitAsk(ctx contractapi.TransactionContextInterface, a
 		Seller:   clientID,
 		Org:      clientOrgID,
 		Quantity: quantity,
+		Unsold: 	quantity,
 	}
 
 	// create a composite key for ask using the item and transaction ID

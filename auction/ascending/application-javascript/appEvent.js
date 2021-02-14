@@ -13,8 +13,8 @@ const { bid, ask } = require('./lib/bidAsk.js');
 
 const channelName = 'mychannel';
 const chaincodeName = 'auction';
-const item = 'good9';
-const auctionID = 'auction9';
+const item = 'good1';
+const auctionID = 'auction1';
 
 
 async function main() {
