@@ -22,13 +22,16 @@ exports.ask = async (gateway,orgMSP,item,quantity,price) => {
         let seller = await contract.evaluateTransaction('GetSubmittingClientIdentity');
         console.log('*** Result:  Seller ID is ' + seller.toString());
 
-        let askData = { objectType: 'ask', quantity: parseInt(quantity) , price: parseInt(price), org: orgMSP, seller: seller.toString()};
+        let privateAsk = { objectType: 'ask', quantity: parseInt(quantity) , price: parseInt(price), org: orgMSP, seller: seller.toString()};
+        let publicAsk = { objectType: 'ask', quantity: parseInt(quantity) , org: orgMSP, seller: seller.toString()};
 
         let askTransaction = contract.createTransaction('Ask');
         askTransaction.setEndorsingOrganizations(orgMSP);
-        let tmapData = Buffer.from(JSON.stringify(askData));
+        let privateAskData = Buffer.from(JSON.stringify(privateAsk));
+        let publicAskData = Buffer.from(JSON.stringify(publicAsk));
         askTransaction.setTransient({
-              ask: tmapData
+              privateAsk: privateAskData,
+              publicAsk: publicAskData
             });
 
         let askID = askTransaction.getTransactionId();
@@ -67,13 +70,17 @@ exports.bid = async (gateway,orgMSP,item,quantity,price) => {
         let buyer = await contract.evaluateTransaction('GetSubmittingClientIdentity');
         console.log('*** Result:  Buyer ID is ' + buyer.toString());
 
-        let bidData = { objectType: 'bid', quantity: parseInt(quantity) , price: parseInt(price), org: orgMSP, buyer: buyer.toString()};
+        let privateBid = { objectType: 'bid', quantity: parseInt(quantity) , price: parseInt(price), org: orgMSP, buyer: buyer.toString()};
+        let publicBid = { objectType: 'bid', quantity: parseInt(quantity) , org: orgMSP, buyer: buyer.toString()};
+
 
         let bidTransaction = contract.createTransaction('Bid');
         bidTransaction.setEndorsingOrganizations(orgMSP);
-        let tmapData = Buffer.from(JSON.stringify(bidData));
+        let privateBidData = Buffer.from(JSON.stringify(privateBid));
+        let publicBidData = Buffer.from(JSON.stringify(publicBid));
         bidTransaction.setTransient({
-              bid: tmapData
+              privateBid: privateBidData,
+              publicBid: publicBidData
             });
 
         let bidID = bidTransaction.getTransactionId();

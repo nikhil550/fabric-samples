@@ -31,8 +31,8 @@ type AuctionRound struct {
 	Bidders  map[string]Bidder `json:"bidders"`
 }
 
-// Bid is the structure of a bid in private state
-type Bid struct {
+// PrivateBid is the structure of a bid in private state
+type PrivateBid struct {
 	Type     string `json:"objectType"`
 	Quantity int    `json:"quantity"`
 	Org      string `json:"org"`
@@ -40,14 +40,32 @@ type Bid struct {
 	Price    int    `json:"price"`
 }
 
-// Ask is the structure of a bid in private state
-type Ask struct {
+// Bid is the structure of a bid that will be made public
+type PublicBid struct {
+	Type     string `json:"objectType"`
+	Quantity int    `json:"quantity"`
+	Org      string `json:"org"`
+	Buyer    string `json:"buyer"`
+	Price    int    `json:"price"`
+}
+
+// PrivateAsk is the structure of a bid in private state
+type PrivateAsk struct {
 	Type     string `json:"objectType"`
 	Quantity int    `json:"quantity"`
 	Org      string `json:"org"`
 	Seller   string `json:"seller"`
 	Price    int    `json:"price"`
 }
+
+// PublicAsk is the structure of a bid in public state
+type PublicAsk struct {
+	Type     string `json:"objectType"`
+	Quantity int    `json:"quantity"`
+	Org      string `json:"org"`
+	Seller   string `json:"seller"`
+}
+
 
 // BidAskHash is the structure of a private bid or ask in the public order book
 type BidAskHash struct {
@@ -156,7 +174,7 @@ func (s *SmartContract) CreateNewRound(ctx contractapi.TransactionContextInterfa
 	}
 
 	// check 3: confirm that Demand >= Supply for the previous round before creating a new round
-	if auction.Quantity >= auction.Demand {
+	if auction.Sold >= auction.Demand {
 		return fmt.Errorf("Cannot create new round: demand is not yet greater than supply")
 	}
 
@@ -308,7 +326,7 @@ func (s *SmartContract) closeAuctionChecks(ctx contractapi.TransactionContextInt
 	// check 3: if supply is less than demand
 	// check if there is another round. If there is, run the same checks
 	// on that round
-	if auction.Quantity <= auction.Demand {
+	if auction.Sold < auction.Demand {
 
 		newRound := auction.Round + 1
 		nextAuctionRound, err := s.QueryAuctionRound(ctx, auction.ID, newRound)
@@ -316,9 +334,13 @@ func (s *SmartContract) closeAuctionChecks(ctx contractapi.TransactionContextInt
 			return fmt.Errorf("Need to start new round before this round can be closed")
 		}
 
-		err = s.closeAuctionChecks(ctx, nextAuctionRound)
-		if err != nil {
-			return fmt.Errorf("Next round is still active")
+		if nextAuctionRound.Sold <= nextAuctionRound.Demand {
+			err = s.closeAuctionChecks(ctx, nextAuctionRound)
+			if err != nil {
+				return fmt.Errorf("Next round is still active")
+			} else {
+				return fmt.Errorf("Cannot close non-final round")
+			}
 		}
 
 	}

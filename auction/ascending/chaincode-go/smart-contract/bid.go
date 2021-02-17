@@ -9,11 +9,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"crypto/sha256"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
 
-const bidKeyType = "bid"
+const privateBidKeyType = "privateBid"
+const publicBidKeyType = "publicBid"
+
 
 // Bid is used to create a bid for a certain item. The bid is stored in the private
 // data collection on the peer of the bidder's organization. The function returns
@@ -26,7 +29,12 @@ func (s *SmartContract) Bid(ctx contractapi.TransactionContextInterface, item st
 		return "", fmt.Errorf("error getting transient: %v", err)
 	}
 
-	BidJSON, ok := transientMap["bid"]
+	privateBidJSON, ok := transientMap["privateBid"]
+	if !ok {
+		return "", fmt.Errorf("bid key not found in the transient map")
+	}
+
+	publicBidJSON, ok := transientMap["publicBid"]
 	if !ok {
 		return "", fmt.Errorf("bid key not found in the transient map")
 	}
@@ -46,14 +54,26 @@ func (s *SmartContract) Bid(ctx contractapi.TransactionContextInterface, item st
 	// the transaction ID is used as a unique index for the bid
 	txID := ctx.GetStub().GetTxID()
 
-	// create composite key for the bid using the item and the txid
-	bidKey, err := ctx.GetStub().CreateCompositeKey(bidKeyType, []string{item, txID})
+	// create composite key for the private bid using the item and the txid
+	privateBidKey, err := ctx.GetStub().CreateCompositeKey(privateBidKeyType, []string{item, txID})
 	if err != nil {
 		return "", fmt.Errorf("failed to create composite key: %v", err)
 	}
 
 	// put the bid into the organization's implicit data collection
-	err = ctx.GetStub().PutPrivateData(collection, bidKey, BidJSON)
+	err = ctx.GetStub().PutPrivateData(collection, privateBidKey, privateBidJSON)
+	if err != nil {
+		return "", fmt.Errorf("failed to input bid into collection: %v", err)
+	}
+
+	// create composite key for the public bid using the item and the txid
+	publicBidKey, err := ctx.GetStub().CreateCompositeKey(publicBidKeyType, []string{item, txID})
+	if err != nil {
+		return "", fmt.Errorf("failed to create composite key: %v", err)
+	}
+
+	// put the bid into the organization's implicit data collection
+	err = ctx.GetStub().PutPrivateData(collection, publicBidKey, publicBidJSON)
 	if err != nil {
 		return "", fmt.Errorf("failed to input bid into collection: %v", err)
 	}
@@ -64,23 +84,28 @@ func (s *SmartContract) Bid(ctx contractapi.TransactionContextInterface, item st
 
 // SubmitBid adds a bid to an auction round. If successful, updates the
 // quantity demanded and the quantity won by each bid
-func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, auctionID string, round int, quantity int, txID string) error {
+func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, auctionID string, round int, txID string) error {
 
-	// get identity of submitting client
-	clientID, err := s.GetSubmittingClientIdentity(ctx)
+	// get bid from transient map
+	transientMap, err := ctx.GetStub().GetTransient()
 	if err != nil {
-		return fmt.Errorf("failed to get client identity %v", err)
+		return fmt.Errorf("error getting transient: %v", err)
 	}
 
-	// get the org of the subitting bidder
-	clientOrgID, err := ctx.GetClientIdentity().GetMSPID()
-	if err != nil {
-		return fmt.Errorf("failed to get client MSP ID: %v", err)
+	transientBidJSON, ok := transientMap["publicBid"]
+	if !ok {
+		return fmt.Errorf("bid key not found in the transient map")
 	}
 
 	auction, err := s.QueryAuctionRound(ctx, auctionID, round)
 	if err != nil {
 		return fmt.Errorf("Error getting auction round from state")
+	}
+
+	// create a composite key for bid using the transaction ID
+	publicBidKey, err := ctx.GetStub().CreateCompositeKey(publicBidKeyType, []string{auction.ItemSold, txID})
+	if err != nil {
+		return fmt.Errorf("failed to create composite key: %v", err)
 	}
 
 	// Check 1: the auction needs to be open for users to add their bid
@@ -89,12 +114,8 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 		return fmt.Errorf("cannot join closed or ended auction")
 	}
 
-	// create a composite key for bid using the transaction ID
-	bidKey, err := ctx.GetStub().CreateCompositeKey(bidKeyType, []string{auction.ItemSold, txID})
-	if err != nil {
-		return fmt.Errorf("failed to create composite key: %v", err)
-	}
-
+	// Check 2: the user needs to have joined the previous auction in order to
+	// add their bid
 	previousRound := round - 1
 
 	if previousRound >= 0 {
@@ -107,9 +128,7 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 		previousBidders := make(map[string]Bidder)
 		previousBidders = auctionLastRound.Bidders
 
-		// Check 2: the user needs to have joined the previous auction in order to
-		// add their bid
-		if _, previousBid := previousBidders[bidKey]; previousBid {
+		if _, previousBid := previousBidders[publicBidKey]; previousBid {
 
 			//bid is in the previous auction, no action to take
 		} else {
@@ -118,14 +137,14 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 	}
 
 	// check 3: check that bid has not changed on the public book
-	publicBid, err := s.QueryPublic(ctx, auction.ItemSold, bidKeyType, txID)
+	publicBid, err := s.QueryPublic(ctx, auction.ItemSold, publicBidKeyType, txID)
 	if err != nil {
 		return fmt.Errorf("failed to read bid hash from public order book: %v", err)
 	}
 
 	collection := "_implicit_org_" + publicBid.Org
 
-	bidHash, err := ctx.GetStub().GetPrivateDataHash(collection, bidKey)
+	bidHash, err := ctx.GetStub().GetPrivateDataHash(collection, publicBidKey)
 	if err != nil {
 		return fmt.Errorf("failed to read bid hash from collection: %v", err)
 	}
@@ -133,22 +152,41 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 		return fmt.Errorf("bid hash does not exist: %s", bidHash)
 	}
 
+	hash := sha256.New()
+	hash.Write(transientBidJSON)
+	calculatedBidJSONHash := hash.Sum(nil)
+
+	// verify that the hash of the passed immutable properties matches the on-chain hash
+	if !bytes.Equal(calculatedBidJSONHash, bidHash) {
+		return fmt.Errorf("hash %x for bid JSON %s does not match hash in auction: %x",
+			calculatedBidJSONHash,
+			transientBidJSON,
+			bidHash,
+		)
+	}
+
 	if !bytes.Equal(publicBid.Hash, bidHash) {
 		return fmt.Errorf("Bidder has changed their bid")
 	}
 
+	var bid *PublicBid
+	err = json.Unmarshal(transientBidJSON, &bid)
+	if err != nil {
+		return err
+	}
+
 	// now that all checks have passed, create new bid
 	NewBidder := Bidder{
-		Buyer:    clientID,
-		Org:      clientOrgID,
-		Quantity: quantity,
+		Buyer:    bid.Buyer,
+		Org:      bid.Org,
+		Quantity: bid.Quantity,
 		Won:      0,
 	}
 
 	// add the bid to the new list of bidders
 	bidders := make(map[string]Bidder)
 	bidders = auction.Bidders
-	bidders[bidKey] = NewBidder
+	bidders[publicBidKey] = NewBidder
 
 	newDemand := 0
 	for _, bidder := range bidders {
@@ -248,19 +286,29 @@ func (s *SmartContract) DeleteBid(ctx contractapi.TransactionContextInterface, i
 		return fmt.Errorf("failed to get implicit collection name: %v", err)
 	}
 
-	bidKey, err := ctx.GetStub().CreateCompositeKey(bidKeyType, []string{item, txID})
+	publicBidKey, err := ctx.GetStub().CreateCompositeKey(publicBidKeyType, []string{item, txID})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)
 	}
 
-	err = s.checkBidOwner(ctx, collection, bidKey)
+	err = ctx.GetStub().DelPrivateData(collection, publicBidKey)
+	if err != nil {
+		return fmt.Errorf("failed to get bid %v: %v", publicBidKey, err)
+	}
+
+	privateBidKey, err := ctx.GetStub().CreateCompositeKey(privateBidKeyType, []string{item, txID})
+	if err != nil {
+		return fmt.Errorf("failed to create composite key: %v", err)
+	}
+
+	err = s.checkBidOwner(ctx, collection, privateBidKey)
 	if err != nil {
 		return err
 	}
 
-	err = ctx.GetStub().DelPrivateData(collection, bidKey)
+	err = ctx.GetStub().DelPrivateData(collection, privateBidKey)
 	if err != nil {
-		return fmt.Errorf("failed to get bid %v: %v", bidKey, err)
+		return fmt.Errorf("failed to get bid %v: %v", privateBidKey, err)
 	}
 
 	return nil
@@ -277,17 +325,17 @@ func (s *SmartContract) NewPublicBid(ctx contractapi.TransactionContextInterface
 	}
 
 	// create composite key for the bid using the item and the txid
-	bidKey, err := ctx.GetStub().CreateCompositeKey(bidKeyType, []string{item, txID})
+	publicBidKey, err := ctx.GetStub().CreateCompositeKey(publicBidKeyType, []string{item, txID})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)
 	}
 
-	Hash, err := ctx.GetStub().GetPrivateDataHash(collection, bidKey)
+	Hash, err := ctx.GetStub().GetPrivateDataHash(collection, publicBidKey)
 	if err != nil {
 		return fmt.Errorf("failed to read bid hash from collection: %v", err)
 	}
 	if Hash == nil {
-		return fmt.Errorf("bid hash does not exist: %s", bidKey)
+		return fmt.Errorf("bid hash does not exist: %s", publicBidKey)
 	}
 
 	// get the org of the subitting bidder
@@ -305,7 +353,7 @@ func (s *SmartContract) NewPublicBid(ctx contractapi.TransactionContextInterface
 	publicBidJSON, _ := json.Marshal(publicBid)
 
 	// put the ask hash of the bid in the public order book
-	err = ctx.GetStub().PutState(bidKey, publicBidJSON)
+	err = ctx.GetStub().PutState(publicBidKey, publicBidJSON)
 	if err != nil {
 		return fmt.Errorf("failed to input bid into state: %v", err)
 	}

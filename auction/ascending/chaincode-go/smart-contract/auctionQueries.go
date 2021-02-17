@@ -16,13 +16,13 @@ import (
 // BidReturn is the data type returned to an auction admin
 type BidReturn struct {
 	ID  string `json:"id"`
-	Bid *Bid   `json:"bid"`
+	Bid *PrivateBid   `json:"bid"`
 }
 
 // AskReturn is the data type returned to an auction admin
 type AskReturn struct {
 	ID  string `json:"id"`
-	Ask *Ask   `json:"ask"`
+	Ask *PrivateAsk   `json:"ask"`
 }
 
 // QueryAuction allows all members of the channel to read all rounds of a public auction
@@ -79,7 +79,7 @@ func (s *SmartContract) QueryAuctionRound(ctx contractapi.TransactionContextInte
 }
 
 // QueryBid allows the submitter of the bid or an auction admin to read their bid from private state
-func (s *SmartContract) QueryBid(ctx contractapi.TransactionContextInterface, item string, txID string) (*Bid, error) {
+func (s *SmartContract) QueryBid(ctx contractapi.TransactionContextInterface, item string, txID string) (*PrivateBid, error) {
 
 	err := verifyClientOrgMatchesPeerOrg(ctx)
 	if err != nil {
@@ -91,7 +91,7 @@ func (s *SmartContract) QueryBid(ctx contractapi.TransactionContextInterface, it
 		return nil, fmt.Errorf("failed to get implicit collection name: %v", err)
 	}
 
-	bidKey, err := ctx.GetStub().CreateCompositeKey(bidKeyType, []string{item, txID})
+	bidKey, err := ctx.GetStub().CreateCompositeKey(privateBidKeyType, []string{item, txID})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create composite key: %v", err)
 	}
@@ -113,7 +113,7 @@ func (s *SmartContract) QueryBid(ctx contractapi.TransactionContextInterface, it
 		return nil, fmt.Errorf("bid %v does not exist", bidKey)
 	}
 
-	var bid *Bid
+	var bid *PrivateBid
 	err = json.Unmarshal(bidJSON, &bid)
 	if err != nil {
 		return nil, err
@@ -123,7 +123,7 @@ func (s *SmartContract) QueryBid(ctx contractapi.TransactionContextInterface, it
 }
 
 // QueryAsk allows a seller or an auction admin to read their bid from private state
-func (s *SmartContract) QueryAsk(ctx contractapi.TransactionContextInterface, item string, txID string) (*Ask, error) {
+func (s *SmartContract) QueryAsk(ctx contractapi.TransactionContextInterface, item string, txID string) (*PrivateAsk, error) {
 
 	err := verifyClientOrgMatchesPeerOrg(ctx)
 	if err != nil {
@@ -135,7 +135,7 @@ func (s *SmartContract) QueryAsk(ctx contractapi.TransactionContextInterface, it
 		return nil, fmt.Errorf("failed to get implicit collection name: %v", err)
 	}
 
-	askKey, err := ctx.GetStub().CreateCompositeKey(askKeyType, []string{item, txID})
+	askKey, err := ctx.GetStub().CreateCompositeKey(privateAskKeyType, []string{item, txID})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create composite key: %v", err)
 	}
@@ -156,7 +156,7 @@ func (s *SmartContract) QueryAsk(ctx contractapi.TransactionContextInterface, it
 		return nil, fmt.Errorf("ask %v does not exist", askKey)
 	}
 
-	var ask *Ask
+	var ask *PrivateAsk
 	err = json.Unmarshal(askJSON, &ask)
 	if err != nil {
 		return nil, err
@@ -186,7 +186,7 @@ func (s *SmartContract) QueryBids(ctx contractapi.TransactionContextInterface, i
 	}
 
 	// return bids using the item
-	resultsIterator, err := ctx.GetStub().GetPrivateDataByPartialCompositeKey(collection, bidKeyType, []string{item})
+	resultsIterator, err := ctx.GetStub().GetPrivateDataByPartialCompositeKey(collection, privateBidKeyType, []string{item})
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ func (s *SmartContract) QueryBids(ctx contractapi.TransactionContextInterface, i
 
 		txID := keyParts[1]
 
-		var bid *Bid
+		var bid *PrivateBid
 		err = json.Unmarshal(queryResponse.Value, &bid)
 		if err != nil {
 			return nil, err
@@ -244,7 +244,7 @@ func (s *SmartContract) QueryAsks(ctx contractapi.TransactionContextInterface, i
 	}
 
 	// return ask using the item
-	resultsIterator, err := ctx.GetStub().GetPrivateDataByPartialCompositeKey(collection, askKeyType, []string{item})
+	resultsIterator, err := ctx.GetStub().GetPrivateDataByPartialCompositeKey(collection, privateAskKeyType, []string{item})
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +265,7 @@ func (s *SmartContract) QueryAsks(ctx contractapi.TransactionContextInterface, i
 
 		txID := keyParts[1]
 
-		var ask *Ask
+		var ask *PrivateAsk
 		err = json.Unmarshal(queryResponse.Value, &ask)
 		if err != nil {
 			return nil, err
@@ -296,7 +296,7 @@ func checkForHigherBid(ctx contractapi.TransactionContextInterface, auctionPrice
 	var error error
 	error = nil
 
-	resultsIterator, err := ctx.GetStub().GetStateByPartialCompositeKey(bidKeyType, []string{item})
+	resultsIterator, err := ctx.GetStub().GetStateByPartialCompositeKey(privateBidKeyType, []string{item})
 	if err != nil {
 		return err
 	}
@@ -334,7 +334,7 @@ func checkForHigherBid(ctx contractapi.TransactionContextInterface, auctionPrice
 					return fmt.Errorf("bid %v does not exist", bidKey)
 				}
 
-				var bid *Bid
+				var bid *PrivateBid
 				err = json.Unmarshal(bidJSON, &bid)
 				if err != nil {
 					return err
@@ -373,7 +373,7 @@ func checkForLowerAsk(ctx contractapi.TransactionContextInterface, auctionPrice 
 	var error error
 	error = nil
 
-	resultsIterator, err := ctx.GetStub().GetStateByPartialCompositeKey(askKeyType, []string{item})
+	resultsIterator, err := ctx.GetStub().GetStateByPartialCompositeKey(privateAskKeyType, []string{item})
 	if err != nil {
 		return err
 	}
@@ -411,14 +411,14 @@ func checkForLowerAsk(ctx contractapi.TransactionContextInterface, auctionPrice 
 					return fmt.Errorf("ask %v does not exist", askKey)
 				}
 
-				var ask *Ask
+				var ask *PrivateAsk
 				err = json.Unmarshal(askJSON, &ask)
 				if err != nil {
 					return err
 				}
 
 				if ask.Price <= auctionPrice {
-					error = fmt.Errorf("Cannot close auction round, seller has a higher price: %v", err)
+					error = fmt.Errorf("Cannot close auction round, seller has a lower price: %v", err)
 				}
 
 			} else {

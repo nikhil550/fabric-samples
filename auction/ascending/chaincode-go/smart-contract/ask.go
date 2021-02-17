@@ -8,11 +8,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"crypto/sha256"
+	"bytes"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
 
-const askKeyType = "ask"
+const privateAskKeyType = "privateAsk"
+const publicAskKeyType = "publicAsk"
 
 // Ask is used to sell a certain item. The ask is stored in private data
 // of the sellers organization, and identified by the item and transaction id
@@ -24,7 +27,12 @@ func (s *SmartContract) Ask(ctx contractapi.TransactionContextInterface, item st
 		return "", fmt.Errorf("error getting transient: %v", err)
 	}
 
-	askJSON, ok := transientMap["ask"]
+	privateAskJSON, ok := transientMap["privateAsk"]
+	if !ok {
+		return "", fmt.Errorf("bid key not found in the transient map")
+	}
+
+	publicAskJSON, ok := transientMap["publicAsk"]
 	if !ok {
 		return "", fmt.Errorf("bid key not found in the transient map")
 	}
@@ -45,13 +53,25 @@ func (s *SmartContract) Ask(ctx contractapi.TransactionContextInterface, item st
 	txID := ctx.GetStub().GetTxID()
 
 	// create a composite key using the item and transaction ID
-	askKey, err := ctx.GetStub().CreateCompositeKey(askKeyType, []string{item, txID})
+	privateAskKey, err := ctx.GetStub().CreateCompositeKey(privateAskKeyType, []string{item, txID})
 	if err != nil {
 		return "", fmt.Errorf("failed to create composite key: %v", err)
 	}
 
 	// put the bid into the organization's implicit data collection
-	err = ctx.GetStub().PutPrivateData(collection, askKey, askJSON)
+	err = ctx.GetStub().PutPrivateData(collection, privateAskKey, privateAskJSON)
+	if err != nil {
+		return "", fmt.Errorf("failed to input price into collection: %v", err)
+	}
+
+	// create a composite key using the item and transaction ID
+	publicAskKey, err := ctx.GetStub().CreateCompositeKey(publicAskKeyType, []string{item, txID})
+	if err != nil {
+		return "", fmt.Errorf("failed to create composite key: %v", err)
+	}
+
+	// put the bid into the organization's implicit data collection
+	err = ctx.GetStub().PutPrivateData(collection, publicAskKey, publicAskJSON)
 	if err != nil {
 		return "", fmt.Errorf("failed to input price into collection: %v", err)
 	}
@@ -61,18 +81,17 @@ func (s *SmartContract) Ask(ctx contractapi.TransactionContextInterface, item st
 }
 
 // SubmitAsk is used to add an ask to an active auction round
-func (s *SmartContract) SubmitAsk(ctx contractapi.TransactionContextInterface, auctionID string, round int, quantity int, txID string) error {
+func (s *SmartContract) SubmitAsk(ctx contractapi.TransactionContextInterface, auctionID string, round int, txID string) error {
 
-	// get identity of submitting client
-	clientID, err := s.GetSubmittingClientIdentity(ctx)
+	// get bid from transient map
+	transientMap, err := ctx.GetStub().GetTransient()
 	if err != nil {
-		return fmt.Errorf("failed to get client identity %v", err)
+		return fmt.Errorf("error getting transient: %v", err)
 	}
 
-	// get the org of the subitting bidder
-	clientOrgID, err := ctx.GetClientIdentity().GetMSPID()
-	if err != nil {
-		return fmt.Errorf("failed to get client MSP ID: %v", err)
+	transientAskJSON, ok := transientMap["publicAsk"]
+	if !ok {
+		return fmt.Errorf("bid key not found in the transient map")
 	}
 
 	auction, err := s.QueryAuctionRound(ctx, auctionID, round)
@@ -80,30 +99,70 @@ func (s *SmartContract) SubmitAsk(ctx contractapi.TransactionContextInterface, a
 		return fmt.Errorf("Error getting auction round from state")
 	}
 
-	// the auction needs to be open for users to add their bid
+	// create a composite key for bid using the transaction ID
+	publicAskKey, err := ctx.GetStub().CreateCompositeKey(publicAskKeyType, []string{auction.ItemSold, txID})
+	if err != nil {
+		return fmt.Errorf("failed to create composite key: %v", err)
+	}
+
+	// Check 1: the auction needs to be open for users to add their bid
 	Status := auction.Status
 	if Status != "open" {
 		return fmt.Errorf("cannot join closed or ended auction")
 	}
 
-	// store the hash along with the bidder's organization
-	NewSeller := Seller{
-		Seller:   clientID,
-		Org:      clientOrgID,
-		Quantity: quantity,
-		Unsold: 	quantity,
+	// check 3: check that bid has not changed on the public book
+	publicAsk, err := s.QueryPublic(ctx, auction.ItemSold, publicAskKeyType, txID)
+	if err != nil {
+		return fmt.Errorf("failed to read bid hash from public order book: %v", err)
 	}
 
-	// create a composite key for ask using the item and transaction ID
-	askKey, err := ctx.GetStub().CreateCompositeKey(askKeyType, []string{auction.ItemSold, txID})
+	collection := "_implicit_org_" + publicAsk.Org
+
+	askHash, err := ctx.GetStub().GetPrivateDataHash(collection, publicAskKey)
 	if err != nil {
-		return fmt.Errorf("failed to create composite key: %v", err)
+		return fmt.Errorf("failed to read bid hash from collection: %v", err)
+	}
+	if askHash == nil {
+		return fmt.Errorf("bid hash does not exist: %s", askHash)
+	}
+
+	hash := sha256.New()
+	hash.Write(transientAskJSON)
+	calculatedAskJSONHash := hash.Sum(nil)
+
+	// verify that the hash of the passed immutable properties matches the on-chain hash
+	if !bytes.Equal(calculatedAskJSONHash, askHash) {
+		return fmt.Errorf("hash %x for bid JSON %s does not match hash in auction: %x",
+			calculatedAskJSONHash,
+			transientAskJSON,
+			askHash,
+		)
+	}
+
+	if !bytes.Equal(publicAsk.Hash, askHash) {
+		return fmt.Errorf("Bidder has changed their bid")
+	}
+
+	var ask *PublicAsk
+	err = json.Unmarshal(transientAskJSON, &ask)
+	if err != nil {
+		return err
+	}
+
+	// store the hash along with the sellers's organization
+
+	NewSeller := Seller{
+		Seller:   ask.Seller,
+		Org:      ask.Org,
+		Quantity: ask.Quantity,
+		Unsold:   ask.Quantity,
 	}
 
 	// add to the list of sellers
 	sellers := make(map[string]Seller)
 	sellers = auction.Sellers
-	sellers[askKey] = NewSeller
+	sellers[publicAskKey] = NewSeller
 
 	newQuantity := 0
 	for _, seller := range sellers {
@@ -185,20 +244,31 @@ func (s *SmartContract) DeleteAsk(ctx contractapi.TransactionContextInterface, i
 	}
 
 	// create a composite key using the item and transaction ID
-	askKey, err := ctx.GetStub().CreateCompositeKey(askKeyType, []string{item, txID})
+	privateAskKey, err := ctx.GetStub().CreateCompositeKey(privateAskKeyType, []string{item, txID})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)
 	}
 
 	// check that the owner is being deleted by the ask owner
-	err = s.checkAskOwner(ctx, collection, askKey)
+	err = s.checkAskOwner(ctx, collection, privateAskKey)
 	if err != nil {
 		return err
 	}
 
-	err = ctx.GetStub().DelPrivateData(collection, askKey)
+	err = ctx.GetStub().DelPrivateData(collection, privateAskKey)
 	if err != nil {
-		return fmt.Errorf("failed to get bid %v: %v", askKey, err)
+		return fmt.Errorf("failed to get bid %v: %v", privateAskKey, err)
+	}
+
+	// create a composite key using the item and transaction ID
+	publicAskKey, err := ctx.GetStub().CreateCompositeKey(publicAskKeyType, []string{item, txID})
+	if err != nil {
+		return fmt.Errorf("failed to create composite key: %v", err)
+	}
+
+	err = ctx.GetStub().DelPrivateData(collection, publicAskKey)
+	if err != nil {
+		return fmt.Errorf("failed to get bid %v: %v", publicAskKey, err)
 	}
 
 	return nil
@@ -215,7 +285,7 @@ func (s *SmartContract) NewPublicAsk(ctx contractapi.TransactionContextInterface
 	}
 
 	// create a composite key using the item and transaction ID
-	askKey, err := ctx.GetStub().CreateCompositeKey(askKeyType, []string{item, txID})
+	askKey, err := ctx.GetStub().CreateCompositeKey(publicAskKeyType, []string{item, txID})
 	if err != nil {
 		return fmt.Errorf("failed to create composite key: %v", err)
 	}

@@ -114,7 +114,12 @@ async function main() {
                           // submit the bid auction
                           try {
                             let newBid = contract.createTransaction('SubmitBid');
-                            await newBid.submit(AuctionID, round, bids[i].bid.quantity, bids[i].id);
+                            let publicBid = { objectType: 'bid', quantity: parseInt(bids[i].bid.quantity) , org: bids[i].bid.org.toString(), buyer: bids[i].bid.buyer.toString() };
+                            let publicBidData = Buffer.from(JSON.stringify(publicBid));
+                            newBid.setTransient({
+                                  publicBid: publicBidData
+                                });
+                            await newBid.submit(AuctionID, round, bids[i].id);
                           } catch (error) {
                             console.log(`<-- Failed to submit bid: ${error}`);
                           };
@@ -130,7 +135,12 @@ async function main() {
                           // submit the ask auction
                           try {
                             let newAsk = contract.createTransaction('SubmitAsk');
-                            await newAsk.submit(AuctionID, round, asks[i].ask.quantity, asks[i].id);
+                            let publicAsk = { objectType: 'ask', quantity: parseInt(asks[i].ask.quantity) , org: asks[i].ask.org.toString(), seller: asks[i].ask.seller.toString()};
+                            let publicAskData = Buffer.from(JSON.stringify(publicAsk));
+                            newAsk.setTransient({
+                                  publicAsk: publicAskData
+                                });
+                            await newAsk.submit(AuctionID, round, asks[i].id);
                           } catch (error) {
                             console.log(`<-- Failed to subit ask: ${error}`);
                           };
@@ -162,7 +172,7 @@ async function main() {
                   // see if demand is greater than supply for the final round.
                   // if so, create a new round
                   let finalRound = auction.length - 1;
-                  if (parseInt(auction[finalRound].demand) > parseInt(auction[finalRound].quantity)) {
+                  if (parseInt(auction[finalRound].sold) <= parseInt(auction[finalRound].demand)) {
 
                     try {
                       let transaction = contract.createTransaction('CreateNewRound');
@@ -176,7 +186,8 @@ async function main() {
                   // go through rounds and try to close if supply
                   // is greater than demand
                   for (let round = 0; round < auction.length; ++round) {
-                    if (parseInt(auction[round].demand) <= parseInt(auction[round].quantity) && (parseInt(auction[round].quantity) != 0)) {
+                    if (parseInt(auction[round].demand) <= parseInt(auction[round].sold) && (parseInt(auction[round].sold) != 0)) {
+                      console.log(auction)
 
                       // try to close the auction
                       try {
@@ -236,8 +247,12 @@ async function main() {
       console.log(`<-- Failed: Setup event - ${eventError}`);
     }
 
-    let transaction = contract.createTransaction('CreateAuction');
-    await transaction.submit(auctionID, item, '20');
+    try {
+      let transaction = contract.createTransaction('CreateAuction');
+      await transaction.submit(auctionID, item, '15');
+    } catch (error) {
+      console.error(`******** FAILED to create new auction: ${error}`);
+    }
 
   } catch (error) {
     console.error(`******** FAILED to run the application: ${error}`);

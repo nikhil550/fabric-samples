@@ -43,7 +43,7 @@ func getCollectionName(ctx contractapi.TransactionContextInterface) (string, err
 
 // verifyClientOrgMatchesPeerOrg is an internal function used to verify that client org id matches peer org id.
 func verifyClientOrgMatchesPeerOrg(ctx contractapi.TransactionContextInterface) error {
-	
+
 	clientMSPID, err := ctx.GetClientIdentity().GetMSPID()
 	if err != nil {
 		return fmt.Errorf("failed getting the client's MSPID: %v", err)
@@ -77,7 +77,7 @@ func (s *SmartContract) checkBidOwner(ctx contractapi.TransactionContextInterfac
 		return fmt.Errorf("bid %v does not exist", bidKey)
 	}
 
-	var bid *Bid
+	var bid *PrivateBid
 	err = json.Unmarshal(bidJSON, &bid)
 	if err != nil {
 		return err
@@ -108,7 +108,7 @@ func (s *SmartContract) checkAskOwner(ctx contractapi.TransactionContextInterfac
 		return fmt.Errorf("ask %v does not exist", askKey)
 	}
 
-	var ask *Ask
+	var ask *PrivateAsk
 	err = json.Unmarshal(askJSON, &ask)
 	if err != nil {
 		return err
