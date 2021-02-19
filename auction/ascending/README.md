@@ -1,20 +1,21 @@
 ## Decentralized ascending auction
 
-The ascending auction sample uses Hyperledger Fabric to run a decentralized auction. Two organizations have members that are bidders and sellers for a homogeneous good. Members submit their bids and asks to each organizations, who store them privately on their peers. The two organizations run an ascending price auction to allocate the goods between the bidders and sellers who have submitted bids.
+This example auction uses Hyperledger Fabric to run a decentralized auction. Instead of being run by a central auctioneer, the auction is run by organizations that represent buyers and sellers. Each organization acts primarily on behalf of the interest of its sellers and tries to sell as many goods as possible for the highest possible price. The smart contract endorsement policy and the design of the auction allow each organization act according to their self interest while the closing the auction at an efficient market clearing price.
 
-Instead of operating under the guidance of a central auctioneer, each auction participant acts on behalf of the interest of the sellers who are members of their organization. Each organization tries to sell as many goods as possible for the highest possible price. The smart contract and the design of the auction allow each organization to run and close the auction at the equilibrium price while following their best interest.
+The auction is implemented as an ascending price auction run over multiple rounds. Each organization that is a member of the blockchain network has members that are interested in buying or selling a homogeneous good. The members submit bids and asks that are stored privately and not revealed to other organizations. Any user can start an auction, which then starts the process of organizations adding bids and asks, raising the price of the good being sold. The auction can be closed when quantity being sold is sufficient to meet demand. The auction is design to sell goods quickly against pre-existing bids and asks.
+
 
 ## Auction design
 
-Users who are interested in selling or buying a homogeneous good submit asks or bids to an organization that is a members of a Fabric network. Each bid or ask consists of a price and a quantity that the user is willing purchase or sell the good. Bids can be created or deleted only by their owner. However, each bid can be read by an auction administrator from the organization, who can then submit the bid or ask to an active action on the users behalf. Auctions can be started by user, and then can be join by any user as well. This scenario allows users to submit  preferences that are executed quickly when goods are brought to sale, such as goods moving through a supply chain or electricity entering the distribution grid.
+Users who are interested in selling or buying a homogeneous good submit asks or bids to an organization that is a member of a Fabric network. Each bid of a price and quantity at which a user is willing purchase or sell a good. Bids can be created or deleted only by their owner. However, each bid can also be read by an auction administrator. Auction administrators are identified by their certificate using attribute based access control and are able submit bids to auctions on a users behalf, though users can also submit bids to auctions directly. Auctions can be started by any user on a channel. Once an auction is started, any member of the channel can participate.
 
 Each auction is run as a series of rounds with a given price. Bid and asks are added to each round at a given price, announcing that the user is willing by buy or sell a given quantity at the round price. If the supply is greater than demand, a new round is created with the price rising by a set increment. Users or the auction administrator can then submit their bids and asks to the new round. When the demand is greater than supply and a new round does not need to be created, the auction is closed and the goods can be allocated. While the user or auction administrator can read the original bid or ask price, the original price is not revealed in the public auction. This allows users to keep some of their information private, and only reveal some of their preferences.
 
 |  **Round** | **Price** | **Bids** |**Bids** |
 | -----------|-----------|---------|---------|
-| 2 | 40 | bidder1 - 20, bidder2 - 20, bidder3 - 20  | seller1 - 20, seller2 - 20, seller3 - 20|
-| 1 | 30 | bidder1 - 20, bidder2 - 20, bidder3 - 20 | seller1 - 20, seller2 - 20|
-| 0 | 20 | bidder1 - 20, bidder2 - 20, bidder3 - 20, bidder, bidder4 - 20 | seller1 - 20|
+| 2 | 20 | bidder1 - 20, bidder2 - 20, bidder3 - 20  | seller1 - 20, seller2 - 20, seller3 - 20|
+| 1 | 15 | bidder1 - 20, bidder2 - 20, bidder3 - 20 | seller1 - 20, seller2 - 20|
+| 0 | 10 | bidder1 - 20, bidder2 - 20, bidder3 - 20, bidder, bidder4 - 20 | seller1 - 20|
 *Example 1: Each auction consists of multiple rounds with the price raised by a set increment.*
 
 Auction can be started by any user who has access to the Fabric network. In addition to adding their bid or ask, any user can try to create a new round and raise the auction price. This allows sellers participating in the auction to try to raise the auction price. Any user can also close a round of the auction to stop new rounds from being created and set the final price of the auction.
@@ -55,9 +56,9 @@ Both organizations need to approve the addition of any bids or asks to an auctio
 
 |  **Round** | **Price** | **Bids** |**Bids** |
 | -----------|-----------|---------|---------|
-| 2 | 40 | bidder1 - 20, bidder2 - 20, bidder3 - 20  | seller1 - 20, seller2 - 20, seller3 - 20|
-| 1 | 30 | bidder1 - 20, bidder2 - 20, bidder3 - 20 | seller1 - 20, seller2 - 20|
-| 0 | 20 | bidder1 - 20, bidder2 - 20, bidder3 - 20, bidder, bidder4 - 20 | seller1 - 20|
+| 2 | 20 | bidder1 - 20, bidder2 - 10, bidder3 - 10  | seller1 - 20, seller2 - 20, seller3 - 20|
+| 1 | 15 | bidder1 - 20, bidder2 - 20, bidder3 - 10 | seller1 - 20, seller2 - 20|
+| 0 | 10 | bidder1 - 20, bidder2 - 20, bidder3 - 20, bidder, bidder4 - 20 | seller1 - 20|
 *Example 2: Each auction consists of multiple rounds with the price raised by a set increment.*
 
 In the example auction above, bidder 3 values the good at 40 dollars, meaning that he will earn exactly zero consumer surplus with the current auction. If the bidder lower their quantity to 10, the auction would not progress to round 2, and the price would remain at 30. By lowering the his bid, the bidder is able to change the auction equilibrium and ends up better off. Each organization enforces a set of rules to prevent users from bidding strategically:
@@ -71,22 +72,21 @@ In the example auction above, bidder 3 values the good at 40 dollars, meaning th
 
 The ascending auction also contains rules that are meant to align the incentives of the two organizations. In the example below,
 
-
 |  **Round** | **Price** | **Bids** |**Asks** |
 | -----------|-----------|---------|---------|
-| 2 | 40 | bidder1 - 20, bidder2 - 20, bidder3 - 20  | seller1 - 20, seller2 - 20, seller3 - 20|
-| 1 | 30 | bidder1 - 20, bidder2 - 20, bidder3 - 20 | seller1 - 20, seller2 - 20|
-| 0 | 20 | bidder1 - 20, bidder2 - 20, bidder3 - 20, bidder, bidder4 - 20 | seller1 - 20|
+| 2 | 20 | bidder1 - 20, bidder2 - 20, bidder3 - 10  | seller1 - Org1 - 20, seller2 - Org1 -20, seller3 - Org2 - 20|
+| 1 | 15 | bidder1 - 20, bidder2 - 20, bidder3 - 20 | seller1 - Org1 - 20, seller2 - Org1 -20|
+| 0 | 10 | bidder1 - 20, bidder2 - 20, bidder3 - 20, bidder, bidder4 - 20 | seller1 - Org1 - 20|
+*Example 3: Each auction consists of multiple rounds with the price raised by a set increment.*
 
 To prevent different organizations from preferring different rounds, or from preferring a lower price, each ask os assigned the quantity that they bid for when the demand is in excess of supply, and keeps that quantity in the next round. In the example above, seller1 sells 20 goods, and is assigned that quantity for the rest of the action. The sum of all quantities assigned to each seller is the total quantity sold. The price received by each seller is set when the total quantity is greater than demand. By unlinking the quantity bid and the price awarded to their bid, each bidder maximizes their expected return by bidding truthfully.
 
 |  **Round** | **Price** | **Bids** | **Asks** | **Sold** |
 | -----------|-----------|---------|---------|--------|
-| 2 | 40 | bidder1 - 20, bidder2 - 20, bidder3 - 20  | seller1 - 20, seller2 - 20, seller3 - 20| 60 |
-| 1 | 30 | bidder1 - 20, bidder2 - 20, bidder3 - 20 | seller1 - 20, seller2 - 20| 40 |
-| 0 | 20 | bidder1 - 20, bidder2 - 20, bidder3 - 20, bidder, bidder4 - 20 | seller1 - 20|20 |
-
-
+| 2 | 40 | bidder1 - 20, bidder2 - 20, bidder3 - 10  | seller1 - Org1 - 20, seller2 - Org1 -20, seller3 - Org2 - 20| 50 |
+| 1 | 30 | bidder1 - 20, bidder2 - 20, bidder3 - 20 | seller1 - Org1 - 20, seller2 - Org1 -20| 40 |
+| 0 | 20 | bidder1 - 20, bidder2 - 20, bidder3 - 20, bidder, bidder4 - 20 | seller1 - Org1 - 20| 20 |
+*Example 4: Each auction consists of multiple rounds with the price raised by a set increment.*
 
 ## Deploy the ascending auction smart contract
 
