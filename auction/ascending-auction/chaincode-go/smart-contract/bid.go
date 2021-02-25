@@ -109,8 +109,8 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 	}
 
 	// Check 1: the auction needs to be open for users to add their bid
-	Status := auction.Status
-	if Status != "open" {
+	status := auction.Status
+	if status != "open" {
 		return fmt.Errorf("cannot join closed or ended auction")
 	}
 
@@ -176,7 +176,7 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 	}
 
 	// now that all checks have passed, create new bid
-	NewBidder := Bidder{
+	newBidder := Bidder{
 		Buyer:    bid.Buyer,
 		Org:      bid.Org,
 		Quantity: bid.Quantity,
@@ -186,7 +186,7 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 	// add the bid to the new list of bidders
 	bidders := make(map[string]Bidder)
 	bidders = auction.Bidders
-	bidders[publicBidKey] = NewBidder
+	bidders[publicBidKey] = newBidder
 
 	newDemand := 0
 	for _, bidder := range bidders {
@@ -330,11 +330,11 @@ func (s *SmartContract) NewPublicBid(ctx contractapi.TransactionContextInterface
 		return fmt.Errorf("failed to create composite key: %v", err)
 	}
 
-	Hash, err := ctx.GetStub().GetPrivateDataHash(collection, publicBidKey)
+	hash, err := ctx.GetStub().GetPrivateDataHash(collection, publicBidKey)
 	if err != nil {
 		return fmt.Errorf("failed to read bid hash from collection: %v", err)
 	}
-	if Hash == nil {
+	if hash == nil {
 		return fmt.Errorf("bid hash does not exist: %s", publicBidKey)
 	}
 
@@ -347,7 +347,7 @@ func (s *SmartContract) NewPublicBid(ctx contractapi.TransactionContextInterface
 	// store the hash along with the seller's organization in the public order book
 	publicBid := BidAskHash{
 		Org:  clientOrgID,
-		Hash: Hash,
+		Hash: hash,
 	}
 
 	publicBidJSON, _ := json.Marshal(publicBid)

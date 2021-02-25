@@ -91,7 +91,7 @@ type Seller struct {
 }
 
 // incrementAmount is the price increase of each new round of the auction
-const incrementAmount = 10
+const incrementAmount = 5
 
 // CreateAuction creates a new auction on the public channel.
 // Each round of teh auction is stored as a seperate key in the world state
@@ -221,8 +221,8 @@ func (s *SmartContract) CloseAuctionRound(ctx contractapi.TransactionContextInte
 		return fmt.Errorf("Error getting auction round from state")
 	}
 
-	Status := auction.Status
-	if Status != "open" {
+	status := auction.Status
+	if status != "open" {
 		return fmt.Errorf("Can only close an open auction")
 	}
 

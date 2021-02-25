@@ -346,11 +346,11 @@ func checkForHigherBid(ctx contractapi.TransactionContextInterface, auctionPrice
 
 			} else {
 
-				Hash, err := ctx.GetStub().GetPrivateDataHash(collection, bidKey)
+				hash, err := ctx.GetStub().GetPrivateDataHash(collection, bidKey)
 				if err != nil {
 					return fmt.Errorf("failed to read bid hash from collection: %v", err)
 				}
-				if Hash == nil {
+				if hash == nil {
 					return fmt.Errorf("bid hash does not exist: %s", bidKey)
 				}
 			}
@@ -423,11 +423,11 @@ func checkForLowerAsk(ctx contractapi.TransactionContextInterface, auctionPrice 
 
 			} else {
 
-				Hash, err := ctx.GetStub().GetPrivateDataHash(collection, askKey)
+				hash, err := ctx.GetStub().GetPrivateDataHash(collection, askKey)
 				if err != nil {
 					return fmt.Errorf("failed to read bid hash from collection: %v", err)
 				}
-				if Hash == nil {
+				if hash == nil {
 					return fmt.Errorf("bid hash does not exist: %s", askKey)
 				}
 			}
