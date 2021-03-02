@@ -178,6 +178,12 @@ func (s *SmartContract) CreateNewRound(ctx contractapi.TransactionContextInterfa
 		return fmt.Errorf("Cannot create new round: demand is not yet greater than supply")
 	}
 
+	// check 4: check if the round is still active
+	err = s.activeAuctionChecks(ctx, auction)
+	if err != nil {
+		return fmt.Errorf("Cannot close round, round and auction is still active")
+	}
+
 	// If all three checks have passed, create a new round
 
 	bidders := make(map[string]Bidder)
@@ -226,10 +232,9 @@ func (s *SmartContract) CloseAuctionRound(ctx contractapi.TransactionContextInte
 		return fmt.Errorf("Can only close an open auction")
 	}
 
-	// compelete series of checks before the auction can be closed.
 	// checks confirms if the auction is still active before it can
-	// be clossed
-	err = s.closeAuctionChecks(ctx, auction)
+	// be closed
+	err = s.activeAuctionChecks(ctx, auction)
 	if err != nil {
 		return fmt.Errorf("Cannot close round, round and auction is still active")
 	}
@@ -307,9 +312,9 @@ func (s *SmartContract) EndAuction(ctx contractapi.TransactionContextInterface, 
 	return nil
 }
 
-//closeAuctionChecks completes a series of checks to see if the auction is still active before
+//activeAuctionChecks completes a series of checks to see if the auction is still active before
 // closing a round.
-func (s *SmartContract) closeAuctionChecks(ctx contractapi.TransactionContextInterface, auction *AuctionRound) error {
+func (s *SmartContract) activeAuctionChecks(ctx contractapi.TransactionContextInterface, auction *AuctionRound) error {
 
 	// check 1: check that all bids have been added to the round
 	err := checkForHigherBid(ctx, auction.Price, auction.ItemSold, auction.Bidders)
@@ -321,28 +326,6 @@ func (s *SmartContract) closeAuctionChecks(ctx contractapi.TransactionContextInt
 	err = checkForLowerAsk(ctx, auction.Price, auction.ItemSold, auction.Sellers)
 	if err != nil {
 		return fmt.Errorf("Cannot close auction: %v", err)
-	}
-
-	// check 3: if supply is less than demand
-	// check if there is another round. If there is, run the same checks
-	// on that round
-	if auction.Sold < auction.Demand {
-
-		newRound := auction.Round + 1
-		nextAuctionRound, err := s.QueryAuctionRound(ctx, auction.ID, newRound)
-		if nextAuctionRound == nil {
-			return fmt.Errorf("Need to start new round before this round can be closed")
-		}
-
-		if nextAuctionRound.Sold <= nextAuctionRound.Demand {
-			err = s.closeAuctionChecks(ctx, nextAuctionRound)
-			if err != nil {
-				return fmt.Errorf("Next round is still active")
-			} else {
-				return fmt.Errorf("Cannot close non-final round")
-			}
-		}
-
 	}
 
 	return nil
