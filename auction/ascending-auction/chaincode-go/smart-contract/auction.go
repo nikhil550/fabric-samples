@@ -66,7 +66,6 @@ type PublicAsk struct {
 	Seller   string `json:"seller"`
 }
 
-
 // BidAskHash is the structure of a private bid or ask in the public order book
 type BidAskHash struct {
 	Org  string `json:"org"`
@@ -173,18 +172,24 @@ func (s *SmartContract) CreateNewRound(ctx contractapi.TransactionContextInterfa
 		return fmt.Errorf("Cannot create round until previous round is created")
 	}
 
-	// check 3: confirm that Demand >= Supply for the previous round before creating a new round
-	if auction.Sold >= auction.Demand {
-		return fmt.Errorf("Cannot create new round: demand is not yet greater than supply")
-	}
-
-	// check 4: check if the round is still active
+	// check 3: check if the round is still active
 	err = s.activeAuctionChecks(ctx, auction)
 	if err != nil {
 		return fmt.Errorf("Cannot close round, round and auction is still active")
 	}
 
-	// If all three checks have passed, create a new round
+	// Allocate quantity sold to bids and quantity won to asks
+	auction, err = s.allocateSold(ctx, auction)
+	if err != nil {
+		return fmt.Errorf("Error allocated quanitity sold")
+	}
+
+	// check 4: confirm that Demand >= Supply for the previous round before creating a new round
+	if auction.Sold >= auction.Demand {
+		return fmt.Errorf("Cannot create new round: demand is not yet greater than supply")
+	}
+
+	// If all four checks have passed, create a new round
 
 	bidders := make(map[string]Bidder)
 
@@ -237,6 +242,17 @@ func (s *SmartContract) CloseAuctionRound(ctx contractapi.TransactionContextInte
 	err = s.activeAuctionChecks(ctx, auction)
 	if err != nil {
 		return fmt.Errorf("Cannot close round, round and auction is still active")
+	}
+
+	// allocate quantity sold to bids and quantity won to asks
+	auction, err = s.allocateSold(ctx, auction)
+	if err != nil {
+		return fmt.Errorf("Error allocated quanitity sold")
+	}
+
+	// confirm that Supply = Demand before closing the auction
+	if auction.Demand >= auction.Sold {
+		return fmt.Errorf("Cannot create new round: demand is not yet greater than supply")
 	}
 
 	auction.Status = string("closed")
@@ -329,4 +345,56 @@ func (s *SmartContract) activeAuctionChecks(ctx contractapi.TransactionContextIn
 	}
 
 	return nil
+}
+
+// allocateSold allocates excess demand to sellers when new rounds are created
+// or a round is sold
+
+func (s *SmartContract) allocateSold(ctx contractapi.TransactionContextInterface, auction *AuctionRound) (*AuctionRound, error) {
+
+	sellers := make(map[string]Seller)
+	sellers = auction.Sellers
+
+	bidders := make(map[string]Bidder)
+	bidders = auction.Bidders
+
+	previousSold := auction.Sold
+	newSold := 0
+	if auction.Quantity > auction.Demand {
+		newSold = auction.Demand
+		remainingSold := newSold - previousSold
+		for bid, bidder := range bidders {
+			bidder.Won = bidder.Quantity
+			bidders[bid] = bidder
+		}
+		totalUnsold := 0
+		for _, seller := range sellers {
+			totalUnsold = totalUnsold + seller.Unsold
+		}
+		if totalUnsold > 0 && remainingSold > 0 {
+			for ask, seller := range sellers {
+				seller.Sold = seller.Sold + (seller.Unsold*remainingSold)/totalUnsold
+				seller.Unsold = seller.Quantity - seller.Sold
+				sellers[ask] = seller
+			}
+		}
+	} else {
+		for ask, seller := range sellers {
+			seller.Sold = seller.Quantity
+			seller.Unsold = 0
+			sellers[ask] = seller
+		}
+		newSold = auction.Quantity
+		if auction.Demand > 0 && auction.Sold > 0 {
+			for bid, bidder := range bidders {
+				bidder.Won = (bidder.Quantity * auction.Sold) / auction.Demand
+				bidders[bid] = bidder
+			}
+		}
+	}
+	auction.Sold = newSold
+	auction.Bidders = bidders
+	auction.Sellers = sellers
+
+	return auction, nil
 }

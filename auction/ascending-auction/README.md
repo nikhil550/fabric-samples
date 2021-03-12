@@ -1,10 +1,10 @@
 ## Ascending auction
 
-This example uses a Hyperledger Fabric smart contract to run a decentralized auction. Instead of being run by a central auctioneer, the auction is run by self interested organizations that are members of the Fabric network. Each organization has members that are buyers and sellers of a good that is being sold at auction. When running the auction, each organization attempts to fill as many asks from its sellers at the highest possible price. The smart contract contains technical and economic mechanisms that prevent organizations from manipulating the outcome to their benefit. As a result, the members can run a competitive auction that sells items at an efficient market clearing price without the presence of a central intermediary.
+This example uses a Hyperledger Fabric smart contract to run a decentralized auction. Instead of being run by a central auctioneer, the auction is run by self interested organizations that are members of the Fabric network. Each organization has members that are buyers and sellers of a good that is being sold at auction. When running the auction, each organization acts on behalf of its sellers and attempts to fill as many asks from its sellers at the highest possible price. The smart contract contains technical and economic mechanisms that prevent organizations from manipulating the outcome to their benefit. As a result, the members can run a competitive auction that sells items at an efficient market clearing price without the presence of a central intermediary.
 
 The smart contract implements an ascending price auction that can sell multiple items of the same type. The auction can be used by multiple sellers, as long as they are selling the same good. Buyers and sellers create bids for the item before the auction starts. Users can submit their bids and asks to the auction after it is created. The price of the auction rises until supply is sufficient to meet demand. Although the auction can be used for many situations, it is designed to allocate goods quickly against pre-existing bids and asks from users, such as energy entering the electricity grid or goods moving through a supply chain.
 
-This tutorial discusses how the auction is implemented and the technical and economic mechanisms that protect the auction from manipulation by self interested users. You can run an example auction by deploying the ascending auction smart contract to a running Fabric network. To demonstrate the decentralized nature of the auction, you can run the auction by submitting asks and bids to the auction using two applications run by different organizations. The applications interact with the auction in parallel and are able to close the auction at an efficient price without coordination or cooperation.
+This tutorial discusses the design of the auction and how the technical and economic mechanisms that protect the auction from manipulation by self interested users. You can run an example auction by deploying the ascending auction smart contract to a running Fabric network. To demonstrate the decentralized nature of the auction, you can run the auction by submitting asks and bids to the auction using two applications run by different organizations. The applications interact with the auction in without cooperation or coordination, but are able to use the smart contract to close the auction and allocate goods at an efficient price.
 
 - [Auction design](#auction-design)
 - [Technical mechanisms to prevent manipulation](#technical-mechanisms-to-prevent-manipulation)
@@ -14,9 +14,9 @@ This tutorial discusses how the auction is implemented and the technical and eco
 
 ## Auction design
 
-While the auction is run by organizations that are members of the Fabric network, the buyers and sellers who participate in the auction are individual users from those organizations. Users create a bid or ask to sell or buy and homogenous good. Each bid (or ask) specifies the quantity of the good that the user is willing to buy (or sell) at a given price. Only the buyer or seller of the good can create or remove the bid. Bids and asks are stored in the private data collections of the organizations participating in the auction. The price at which users are willing to buy or sell is not shared with other organizations. Bidders do not need to create a bid that is unique to each auction. Bids or asks can be added to any auction that sells the item.
+While the auction is run by organizations that are members of the Fabric network, the buyers and sellers who participate in the auction are individual users that are members of those organizations. Users create bids or asks to buy or sell a homogenous good. Each bid (or ask) specifies the quantity of the good that the user is willing to buy (or sell) at a given price. Only the buyer or seller of the good can create or remove the bid. Bids and asks are stored in the private data collection of the members organization. As a result, the price at which users are willing to buy or sell is not shared with other organizations that are members of the network.
 
-Each auction consists of multiple rounds. Each round has a price that the good can be bought or sold for. users can add their bids or asks to each round, announcing the quantity of the good that they are willing to buy or sell at the round price. When quantity demanded by bids is greater than the supply provided by asks, a new round of the auction is created. The new round raises the price by a set increment, and allows buyers and sellers to submit new bids. Users only reveal the quantity that they are willing to buy or sell at a given price, without revealing their full bids. When the quantity for a round is sufficient to meet supply, the auction is closed and the goods are allocated from the sellers to the buyers at the final round price.
+Each auction consists of multiple rounds. Each round has a price at which good can be bought or sold. Users add their bid or ask to each round seperately, announcing that they are willing to buy or sell a certain quanitity at the round price. When the quantity demanded by bids is greater than the supply provided by asks, a new round of the auction is created. The new round raises the price by a set increment, and allows buyers and sellers to submit new bids. Users only reveal the quantity that they are willing to buy or sell at the price of a round. The full bid is kept private. When the quantity for a round is sufficient to meet supply, the auction is closed and the goods are allocated from the sellers to the buyers at the final round price.
 
 |  Round | Price | Bids:<br />Bidder - Quantity |Asks:<br />Seller - Quantity |
 | -----------|-----------|---------|---------|
@@ -130,12 +130,12 @@ If the test network is already running, run the following command to bring the n
 ./network.sh down
 ```
 
-The Fabric test network contains two organizations, Org1 and Org2, that will run the auction. Each organization will deploy a Certificate Authority that will create the identities of bidders, sellers and auction administrator that will participate. Both organizations will run one peer that will store the bids and asks from their members. Run the following command to deploy a new network.  
+The Fabric test network contains two organizations, Org1 and Org2, that will run the auction smart contract. Each organization will deploy a Certificate Authority that will create the identities of bidders, sellers and auction administrator that will participate in the auction. Both organizations will run one peer that will store the bids and asks from their members. Run the following command to deploy a new network, and create a channel that we will become the platform for the auction:
 ```
 ./network.sh up createChannel -ca
 ```
 
-Run the following command to deploy the auction smart contract to the network.
+Run the following command to deploy the auction smart contract to the channel:
 ```
 ./network.sh deployCC -ccn auction -ccp ../auction/ascending/chaincode-go/ -ccl go -ccep "AND('Org1MSP.peer','Org2MSP.peer')"
 ```
@@ -154,18 +154,18 @@ npm install
 
 ### Register users and submit bids and asks
 
-Before we can run the auction, we need to create the seller and bidder identities from Org1 and Org1, as well as the auction administrators that will interact with the auction on those users behalf. You can run the `auctionSetup.js` application to register the users that will participate in the auction. After the identities are created, each buyer and seller will create a bid or ask for tickets. The bids are only stored in the private data collection of their organization.
+Before we can run the auction, we need to create the seller and bidder identities from Org1 and Org1, as well as the auction administrators that will interact with the auction on those users behalf. You can run the `auctionSetup.js` application to register the organization members that will participate in the auction. After the user identities are registered and enrolled with their organizations Certificate Authority, each buyer and seller will create a bid or ask for tickets to an event. The bids of buyers and sellers are stored in the private data collection of their organization.
 ```
 node auctionSetup.js
 ```
 
-The `auctionSetup.js` program provides an example set of bids and asks that we will use to run the auction. However, you can run your own scenario by editing the program and updating the quantity and price preferred by each user, or change the number of identities participating in the auction.
+The `auctionSetup.js` program provides an example set of bids and asks that we will use to run the auction. However, you create your own auction scenario editing the example bids or creating additional users.
 
 ### Start the auction
 
-Instead of interacting the with network from a single program, Org1 and Org2 will run separate applications to demonstrate the non-cooperative nature of the auction. Each application will be run by the action administrator from the respective organization. The administrator will be able to read the bids submitted by the the organization members and submit those bids to an auction on those users behalf.
+Instead of interacting the network with a single application, Org1 and Org2 will run separate programs to demonstrate the non-cooperative nature of the auction. The application of each organization will be run by their application administrator. The auction administrator is able to read the bid and asks that were created from their organization by the `auctionSetup.js` program and has the ability to submit those bids and asks to an active auction.
 
-Open two new terminals, one for the Org1 application, and another for Org2. Open the Org1 terminal. Make sure that you are in the `ascending/application-javascript` directory:
+Open two new command terminals. We will use one terminal to run the Org1 application, and another for Org2. Open the terminal that you will use for Org1 and make sure that you are in the `ascending/application-javascript` directory:
 ```
 cd fabric-samples/auction/ascending/application-javascript
 ```
@@ -175,21 +175,21 @@ Run the following command to start the Org1 application:
 node appOrg1.js
 ```
 
-The application connects to the network and starts a listener that waits for an auction to be started. You can see the application notify you when the listener has started:
+The application connects to the channel and adds a listener to the ascending auction smart contract. You can see the application notify you that the listener has started:
 ```
 <-- added contract listener
 ```
 
-The listener will wait until an auction is started on the channel. When an auction has been created, the application will start a loop that contains the logic of how the auction administrator will interact with the auction. The program is designed to help each organization sell as many goods for the highest possible price:
+The listener will notify the application when a new auction has been created, and the item that the auction is selling. The auction administrator can then search their private data collection for bids and asks for the item being sold. After the auction has started, the auction administrator follows a logic that allows the organization to fill as many asks from its sellers for the highest possible price:
 
-- When a new round is created, each organization queries the their private data collection for the bids from buyers on the item sold by the auction. If organization finds that the bid is above the price of the round, the bid is added to the auction.
-- When a new round is created, each organization also queries their private data collection for asks from seller. All Asks below the round price are added to the round.
-- Each organization iterates through the rounds of the auction. When the quantity sold is less the the demand from bids in the final round, the organization tries to create a new round.
-- If the quantity sold is the same as demand for the final round.
+- When a new round is created, the application reads the bids from buyers on the item sold by the auction. Any bids that are above the round price are added to the auction round.
+- When a new round is created, the application also reads the asks for the item. Any asks that are below round price are added to the auction round.
+- When the quantity sold is less than demand in the round with the highest price, the application will try to create a new round.
+- If the quantity sold is the same as demand in the round with the highest price, the application will try to close the auction.
 
-This logic will run until the listener learns that the final round has been closed, after which the auction is ended.
+The application will run the logic above until the listener learns that the auction has been closed. After the auction closed, the auction will be formally removed, and all rounds but the final round will be removed.
 
-In your terminal for Org2, make sure that you are the same directory:
+Now that Org1 is waiting for an auction to be created, we can create the auction using the Org2 application. Open the terminal for Org2, make sure that you are the same directory:
 
 ```
 cd fabric-samples/auction/ascending/application-javascript
@@ -200,7 +200,9 @@ You can then start the Org2 application:
 node appOrg2.js
 ```
 
-The Org2 application starts the same listener and logic as Org1. However, Org2 application will also start an auction for tickets. After the auction is created, you can see each application start the logic of interacting with the auction using the auction administrator identity. You will see organization adding the bids and asks for tickets from their organization to the auction. You will also see the applications trying to create new rounds or close the final round. Many of those transactions will be rejected if the auction is still active. You will also see the occasional read/write error when the two applications try to update the auction at the same time. Neither application communicates or coordinates with each other.
+The Org2 application starts the same smart contract listener as Org1 and uses the same logic to maximize revenue from the action. However, Org2 application will also start an auction for tickets. After the auction is created, the smart contract will emit an event that informs both Org1 and Org2 that an auction for tickets has been created. Each application will start adding bids and asks to the auction. The applications will also try to raise the auction price by creating new rounds or close the round with the highest price. Many of those transactions will be rejected if the other organization is still adding asks or bids. You will also see the occasional read/write error when the two applications try to update the auction at the same time. Neither application communicates or coordinates with each other.
+
+While the two applications are run by organization administrators, it is possible for buyers and sellers to interact with the auction directly. Bidders would add their bids and try to close the auction at the lowest price possible, while sellers would add their asks and try to raise the auction price as high as possible by creating new rounds. The same checks that allow the two auction administrators to interact with the auction without coordinating would allow buyers and sellers to follow their self interest without changing the auction outcome.
 
 The two test network organizations will eventually agree on a closing round and price for the auction. When the auction is closed and ended, you will see each organizations application print the final auction round:
 ```

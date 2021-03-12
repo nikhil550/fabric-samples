@@ -193,67 +193,7 @@ func (s *SmartContract) SubmitBid(ctx contractapi.TransactionContextInterface, a
 		newDemand = newDemand + bidder.Quantity
 	}
 	auction.Demand = newDemand
-
-	// If quantity = sold, no need to update the asks, just allocate sold amount
-	// to smarller bids first
-	if (auction.Quantity == auction.Sold) && (auction.Sold != 0) {
-
-		if auction.Quantity >= auction.Demand {
-
-			for bid, bidder := range bidders {
-				bidder.Won = bidder.Quantity
-				bidders[bid] = bidder
-			}
-		} else {
-
-			for bid, bidder := range bidders {
-				bidder.Won = (bidder.Quantity * auction.Sold) / auction.Demand
-				bidders[bid] = bidder
-			}
-		}
-		auction.Bidders = bidders
-	} else if auction.Sold == 0 {
-		auction.Bidders = bidders
-	} else {
-		sellers := make(map[string]Seller)
-		sellers = auction.Sellers
-
-		previousSold := auction.Sold
-
-		newSold := 0
-		if auction.Quantity >= auction.Demand {
-			newSold = auction.Demand
-			remainingSold := newSold - previousSold
-			for bid, bidder := range bidders {
-				bidder.Won = bidder.Quantity
-				bidders[bid] = bidder
-			}
-			totalUnsold := 0
-			for _, seller := range sellers {
-				totalUnsold = totalUnsold + seller.Unsold
-			}
-			for ask, seller := range sellers {
-				seller.Sold = seller.Sold + (seller.Unsold*remainingSold)/totalUnsold
-				seller.Unsold = seller.Quantity - seller.Sold
-				sellers[ask] = seller
-			}
-		} else {
-			newSold = auction.Quantity
-			for bid, bidder := range bidders {
-				bidder.Won = (bidder.Quantity * auction.Sold) / auction.Demand
-				bidders[bid] = bidder
-			}
-			for ask, seller := range sellers {
-				seller.Sold = seller.Quantity
-				seller.Unsold = 0
-				sellers[ask] = seller
-			}
-		}
-		auction.Sold = newSold
-
-		auction.Bidders = bidders
-		auction.Sellers = sellers
-	}
+	auction.Bidders = bidders
 
 	// create a composite for the auction round
 	auctionKey, err := ctx.GetStub().CreateCompositeKey("auction", []string{auctionID, "Round", strconv.Itoa(round)})
