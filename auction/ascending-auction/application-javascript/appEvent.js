@@ -13,47 +13,47 @@ const { bid, ask } = require('./lib/bidAsk.js');
 
 const channelName = 'mychannel';
 const chaincodeName = 'auction';
-const item = 'good1';
-const auctionID = 'auction1';
+const item = 'good4';
+const auctionID = 'auction4';
 
 
 async function main() {
   try {
 
     const gatewayBidder1 = await initGatewayForOrg1("bidder1")
-    await bid(gatewayBidder1, "Org1MSP", item, "20", "20");
+    await bid(gatewayBidder1, "Org1MSP", item, "15", "20");
     gatewayBidder1.disconnect();
 
     const gatewayBidder2 = await initGatewayForOrg1("bidder2")
-    await bid(gatewayBidder2, "Org1MSP", item, "20", "40");
+    await bid(gatewayBidder2, "Org1MSP", item, "15", "30");
     gatewayBidder2.disconnect();
 
     const gatewayBidder3 = await initGatewayForOrg1("bidder3")
-    await bid(gatewayBidder3, "Org1MSP", item, "20", "60");
+    await bid(gatewayBidder3, "Org1MSP", item, "15", "40");
     gatewayBidder3.disconnect();
 
     const gatewayBidder4 = await initGatewayForOrg1("bidder4")
-    await bid(gatewayBidder4, "Org1MSP", item, "20", "80");
+    await bid(gatewayBidder4, "Org1MSP", item, "15", "50");
     gatewayBidder4.disconnect();
 
     const gatewayBidder5 = await initGatewayForOrg1("bidder5")
-    await bid(gatewayBidder5, "Org1MSP", item, "20", "100");
+    await bid(gatewayBidder5, "Org1MSP", item, "15", "60");
     gatewayBidder5.disconnect();
 
     const gatewaySeller1 = await initGatewayForOrg1("seller1")
-    await ask(gatewaySeller1, "Org1MSP", item, "20", "30");
+    await ask(gatewaySeller1, "Org1MSP", item, "15", "25");
     gatewaySeller1.disconnect();
 
     const gatewaySeller2 = await initGatewayForOrg1("seller2")
-    await ask(gatewaySeller2, "Org1MSP", item, "20", "50");
+    await ask(gatewaySeller2, "Org1MSP", item, "10", "35");
     gatewaySeller2.disconnect();
 
     const gatewaySeller3 = await initGatewayForOrg1("seller3")
-    await ask(gatewaySeller3, "Org1MSP", item, "20", "70");
+    await ask(gatewaySeller3, "Org1MSP", item, "10", "45");
     gatewaySeller3.disconnect();
 
     const gatewaySeller4 = await initGatewayForOrg1("seller4")
-    await ask(gatewaySeller4, "Org1MSP", item, "20", "90");
+    await ask(gatewaySeller4, "Org1MSP", item, "10", "55");
     gatewaySeller4.disconnect();
 
     const gatewayAuctionAdmin = await initGatewayForOrg1("auctionAdmin");
@@ -172,8 +172,7 @@ async function main() {
                   // see if demand is greater than supply for the final round.
                   // if so, create a new round
                   let finalRound = auction.length - 1;
-                  if (parseInt(auction[finalRound].sold) <= parseInt(auction[finalRound].demand)) {
-
+                  if (parseInt(auction[finalRound].quantity) <= parseInt(auction[finalRound].demand)) {
                     try {
                       let transaction = contract.createTransaction('CreateNewRound');
                       let newRound = auction.length;
@@ -186,8 +185,7 @@ async function main() {
                   // go through rounds and try to close if supply
                   // is greater than demand
                   for (let round = 0; round < auction.length; ++round) {
-                    if (parseInt(auction[round].demand) <= parseInt(auction[round].sold) && (parseInt(auction[round].sold) != 0)) {
-                      console.log(auction)
+                    if (parseInt(auction[round].demand) <= parseInt(auction[round].quantity) && (parseInt(auction[round].quantity) != 0)) {
 
                       // try to close the auction
                       try {

@@ -6,17 +6,16 @@ package auction
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"crypto/sha256"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
 
 const privateBidKeyType = "privateBid"
 const publicBidKeyType = "publicBid"
-
 
 // Bid is used to create a bid for a certain item. The bid is stored in the private
 // data collection on the peer of the bidder's organization. The function returns

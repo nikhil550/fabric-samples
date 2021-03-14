@@ -34,9 +34,9 @@ exports.initGatewayForOrg1 = async (user) => {
 
 exports.initGatewayForOrg2 = async (user) => {
 
-  const ccpOrg2 = buildCCPOrg2();
+	const ccpOrg2 = buildCCPOrg2();
 	const walletPathOrg2 = path.join(__dirname, '../wallet/org2');
-  const walletOrg2 = await buildWallet(Wallets, walletPathOrg2);
+	const walletOrg2 = await buildWallet(Wallets, walletPathOrg2);
 
 	try {
 		// Create a new gateway for connecting to Org's peer node.

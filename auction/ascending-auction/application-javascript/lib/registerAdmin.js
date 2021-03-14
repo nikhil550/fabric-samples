@@ -1,5 +1,4 @@
 /*
- * Copyright IBM Corp. All Rights Reserved.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -9,7 +8,7 @@
 const adminUserId = 'admin';
 
 exports.registerEnrollAuctionAdmin = async (caClient, wallet, orgMspId, userId, affiliation) => {
-	
+
 	try {
 		// Check to see if we've already enrolled the user
 		const userIdentity = await wallet.get(userId);
@@ -35,7 +34,7 @@ exports.registerEnrollAuctionAdmin = async (caClient, wallet, orgMspId, userId, 
 			affiliation: affiliation,
 			enrollmentID: userId,
 			role: 'client',
-      attrs: [{name: "role", value: "auctionAdmin", ecert: true }],
+			attrs: [{ name: "role", value: "auctionAdmin", ecert: true }],
 		}, adminUser);
 		const enrollment = await caClient.enroll({
 			enrollmentID: userId,

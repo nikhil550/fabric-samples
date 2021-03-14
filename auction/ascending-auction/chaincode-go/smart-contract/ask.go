@@ -5,11 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 package auction
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"crypto/sha256"
-	"bytes"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )

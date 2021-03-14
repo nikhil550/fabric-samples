@@ -1,5 +1,4 @@
 /*
- * Copyright IBM Corp. All Rights Reserved.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -82,7 +81,12 @@ async function main() {
 
                               await sleep(Math.floor(Math.random() * 5000) + 3000);
                               let newBid = contract.createTransaction('SubmitBid');
-                              await newBid.submit(AuctionID, round, bids[i].bid.quantity, bids[i].id);
+                              let publicBid = { objectType: 'bid', quantity: parseInt(bids[i].bid.quantity), org: bids[i].bid.org.toString(), buyer: bids[i].bid.buyer.toString() };
+                              let publicBidData = Buffer.from(JSON.stringify(publicBid));
+                              newBid.setTransient({
+                                publicBid: publicBidData
+                              });
+                              await newBid.submit(AuctionID, round, bids[i].id);
 
                             } catch (error) {
                               if (error.toString().match(mvccText) != null) {
@@ -110,7 +114,13 @@ async function main() {
 
                               await sleep(Math.floor(Math.random() * 5000) + 3000);
                               let newAsk = contract.createTransaction('SubmitAsk');
-                              await newAsk.submit(AuctionID, round, asks[i].ask.quantity, asks[i].id);
+                              let publicAsk = { objectType: 'ask', quantity: parseInt(asks[i].ask.quantity), org: asks[i].ask.org.toString(), seller: asks[i].ask.seller.toString() };
+                              let publicAskData = Buffer.from(JSON.stringify(publicAsk));
+                              newAsk.setTransient({
+                                publicAsk: publicAskData
+                              });
+                              await newAsk.submit(AuctionID, round, asks[i].id);
+
                             } catch (error) {
                               if (error.toString().match(mvccText) != null) {
                                 await ask();
@@ -162,6 +172,7 @@ async function main() {
                           setTimeout(() => { newRound() }, 5000);
                         } else {
                           console.log(`<-- Failed to create new round: ${error}`);
+                          await sleep(Math.floor(Math.random() * 5000) + 3000);
                         }
                       };
                     };

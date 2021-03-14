@@ -1,5 +1,4 @@
 /*
- * Copyright IBM Corp. All Rights Reserved.
  *
  * SPDX-License-Identifier: Apache-2.0
 */
@@ -8,7 +7,7 @@
 
 class AuctionRound {
 
-  constructor(id, round, price, item, demand, quantity,sold) {
+  constructor(id, round, price, item, demand, quantity, sold) {
     this.id = id;
     this.round = round;
     this.price = price;

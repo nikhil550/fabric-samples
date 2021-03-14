@@ -15,14 +15,14 @@ import (
 
 // BidReturn is the data type returned to an auction admin
 type BidReturn struct {
-	ID  string `json:"id"`
-	Bid *PrivateBid   `json:"bid"`
+	ID  string      `json:"id"`
+	Bid *PrivateBid `json:"bid"`
 }
 
 // AskReturn is the data type returned to an auction admin
 type AskReturn struct {
-	ID  string `json:"id"`
-	Ask *PrivateAsk   `json:"ask"`
+	ID  string      `json:"id"`
+	Ask *PrivateAsk `json:"ask"`
 }
 
 // QueryAuction allows all members of the channel to read all rounds of a public auction
@@ -296,7 +296,7 @@ func checkForHigherBid(ctx contractapi.TransactionContextInterface, auctionPrice
 	var error error
 	error = nil
 
-	resultsIterator, err := ctx.GetStub().GetStateByPartialCompositeKey(privateBidKeyType, []string{item})
+	resultsIterator, err := ctx.GetStub().GetStateByPartialCompositeKey(publicBidKeyType, []string{item})
 	if err != nil {
 		return err
 	}
@@ -314,24 +314,34 @@ func checkForHigherBid(ctx contractapi.TransactionContextInterface, auctionPrice
 			return err
 		}
 
-		bidKey := queryResponse.Key
+		publicBidKey := queryResponse.Key
 
-		if _, bidInAuction := bidders[bidKey]; bidInAuction {
+		if _, bidInAuction := bidders[publicBidKey]; bidInAuction {
 
 			//bid is already in the auction, no action to take
 
 		} else {
 
+			_, keyParts, err := ctx.GetStub().SplitCompositeKey(publicBidKey)
+			if err != nil {
+				return fmt.Errorf("failed to split composite key: %v", err)
+			}
+
+			privateBidKey, err := ctx.GetStub().CreateCompositeKey(privateBidKeyType, keyParts)
+			if err != nil {
+				return fmt.Errorf("failed to create composite key: %v", err)
+			}
+
 			collection := "_implicit_org_" + publicBid.Org
 
 			if publicBid.Org == peerMSPID {
 
-				bidJSON, err := ctx.GetStub().GetPrivateData(collection, bidKey)
+				bidJSON, err := ctx.GetStub().GetPrivateData(collection, privateBidKey)
 				if err != nil {
-					return fmt.Errorf("failed to get bid %v: %v", bidKey, err)
+					return fmt.Errorf("failed to get bid %v: %v", privateBidKey, err)
 				}
 				if bidJSON == nil {
-					return fmt.Errorf("bid %v does not exist", bidKey)
+					return fmt.Errorf("bid %v does not exist", privateBidKey)
 				}
 
 				var bid *PrivateBid
@@ -346,12 +356,12 @@ func checkForHigherBid(ctx contractapi.TransactionContextInterface, auctionPrice
 
 			} else {
 
-				hash, err := ctx.GetStub().GetPrivateDataHash(collection, bidKey)
+				hash, err := ctx.GetStub().GetPrivateDataHash(collection, privateBidKey)
 				if err != nil {
 					return fmt.Errorf("failed to read bid hash from collection: %v", err)
 				}
 				if hash == nil {
-					return fmt.Errorf("bid hash does not exist: %s", bidKey)
+					return fmt.Errorf("bid hash does not exist: %s", privateBidKey)
 				}
 			}
 		}
@@ -373,7 +383,7 @@ func checkForLowerAsk(ctx contractapi.TransactionContextInterface, auctionPrice 
 	var error error
 	error = nil
 
-	resultsIterator, err := ctx.GetStub().GetStateByPartialCompositeKey(privateAskKeyType, []string{item})
+	resultsIterator, err := ctx.GetStub().GetStateByPartialCompositeKey(publicAskKeyType, []string{item})
 	if err != nil {
 		return err
 	}
@@ -391,24 +401,34 @@ func checkForLowerAsk(ctx contractapi.TransactionContextInterface, auctionPrice 
 			return err
 		}
 
-		askKey := queryResponse.Key
+		publicAskKey := queryResponse.Key
 
-		if _, askInAuction := sellers[askKey]; askInAuction {
+		if _, askInAuction := sellers[publicAskKey]; askInAuction {
 
 			//ask is already in the auction, no action to take
 
 		} else {
 
+			_, keyParts, err := ctx.GetStub().SplitCompositeKey(publicAskKey)
+			if err != nil {
+				return fmt.Errorf("failed to split composite key: %v", err)
+			}
+
+			privateAskKey, err := ctx.GetStub().CreateCompositeKey(privateAskKeyType, keyParts)
+			if err != nil {
+				return fmt.Errorf("failed to create composite key: %v", err)
+			}
+
 			collection := "_implicit_org_" + publicAsk.Org
 
 			if publicAsk.Org == peerMSPID {
 
-				askJSON, err := ctx.GetStub().GetPrivateData(collection, askKey)
+				askJSON, err := ctx.GetStub().GetPrivateData(collection, privateAskKey)
 				if err != nil {
-					return fmt.Errorf("failed to get bid %v: %v", askKey, err)
+					return fmt.Errorf("failed to get bid %v: %v", publicAskKey, err)
 				}
 				if askJSON == nil {
-					return fmt.Errorf("ask %v does not exist", askKey)
+					return fmt.Errorf("ask %v does not exist", privateAskKey)
 				}
 
 				var ask *PrivateAsk
@@ -423,12 +443,12 @@ func checkForLowerAsk(ctx contractapi.TransactionContextInterface, auctionPrice 
 
 			} else {
 
-				hash, err := ctx.GetStub().GetPrivateDataHash(collection, askKey)
+				hash, err := ctx.GetStub().GetPrivateDataHash(collection, privateAskKey)
 				if err != nil {
 					return fmt.Errorf("failed to read bid hash from collection: %v", err)
 				}
 				if hash == nil {
-					return fmt.Errorf("bid hash does not exist: %s", askKey)
+					return fmt.Errorf("bid hash does not exist: %s", privateAskKey)
 				}
 			}
 		}

@@ -185,7 +185,7 @@ func (s *SmartContract) CreateNewRound(ctx contractapi.TransactionContextInterfa
 	}
 
 	// check 4: confirm that Demand >= Supply for the previous round before creating a new round
-	if auction.Sold >= auction.Demand {
+	if auction.Sold == auction.Demand {
 		return fmt.Errorf("Cannot create new round: demand is not yet greater than supply")
 	}
 
@@ -251,8 +251,8 @@ func (s *SmartContract) CloseAuctionRound(ctx contractapi.TransactionContextInte
 	}
 
 	// confirm that Supply = Demand before closing the auction
-	if auction.Demand >= auction.Sold {
-		return fmt.Errorf("Cannot create new round: demand is not yet greater than supply")
+	if auction.Demand > auction.Sold {
+		return fmt.Errorf("Cannot create new round: demand is not equal to supply")
 	}
 
 	auction.Status = string("closed")
