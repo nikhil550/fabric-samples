@@ -1,8 +1,8 @@
 ## Ascending auction
 
-This example uses a Hyperledger Fabric smart contract to run a decentralized auction. Instead of being run by a central auctioneer, the auction is run by self interested organizations that are members of a Fabric network. Each organization has members that are buyers and sellers of a good that is being sold using the auction. When running the auction, each organization acts on behalf of its sellers and attempts to fill as many asks from its members at the highest possible price. The smart contract contains technical and economic mechanisms that prevent organizations from manipulating the outcome to their benefit and sets rules that incentivize organizations to agree to the items being sold at an efficient market clearing price. As a result, the members of the network can participate in a competitive auction without the presence of a central intermediary.
+This example uses a Hyperledger Fabric smart contract to run a decentralized auction. Instead of being run by a central auctioneer, the auction is run by self interested organizations who are members of a Fabric network. Each organization has members that are buyers and sellers of a good being sold using an auction. When running the auction, each organization acts on behalf of its sellers and attempts to fill as many asks from its members at the highest possible price. The smart contract contains technical and economic mechanisms that prevent organizations from manipulating the outcome to their benefit and sets rules that incentivize organizations to agree to the items being sold at an efficient market clearing price. As a result, the members of the network can participate in a competitive auction without the presence of a central intermediary.
 
-The smart contract implements an ascending price auction that can sell multiple items of the same type. The auction can be used by multiple sellers, as long as they are providing the same good. Buyers and sellers create bids for the item before the auction starts and submit their bids and asks to the auction after it is created. The price of the auction rises until supply is sufficient to meet demand. Although the auction can be used for many situations, it is designed to allocate goods quickly against pre-existing bids and asks, such as energy entering the electricity grid or goods moving through a supply chain.
+The smart contract implements an ascending price auction that can sell multiple items of the same type. The auction can be used by multiple sellers, as long as they are providing the same good. Buyers and sellers create bids and asks for the item before the auction starts and submit their bids and asks to the auction after it is created. The price of the auction rises until supply is sufficient to meet demand. Although the auction can be used for many situations, it is designed to allocate goods quickly against pre-existing bids and asks, such as energy entering the electricity grid or goods moving through a supply chain.
 
 This tutorial discusses the design of the auction and how the blockchain network protects the auction from manipulation by self interested users. You can then use this tutorial to run an example auction on a running Fabric network. To demonstrate the decentralized nature of the auction, the example is run by submitting bids and asks using two applications from different organizations. The applications interact with the auction without any coordination or cooperation. However, the organizations running the applications and operating the Fabric network are able to use the smart contract to close the auction at an efficient price.
 
@@ -180,7 +180,7 @@ The application connects to the channel and adds a listener to the ascending auc
 The listener will notify the application when a new auction has been created. The auction administrator will then query the auction on blockchain ledger to learn the item that the auction is selling. After the auction has started, the auction administrator follows a logic that allows the organization to fill as many asks from its sellers for the highest possible price:
 
 - When a new round is created, the application reads the bids from buyers for the item being sold by the auction. Any bids that are above the round price are added to the auction round.
-- When a new round is created, the application also reads the asks for the item from the organizations sellers. Any asks that are below round price are added to the auction round.
+- When a new round is created, the application also reads the asks for the item from the organizations sellers. Any asks that are below the round price are added to the auction round.
 - When the quantity sold is less than demand in the round with the highest price, the application will try to create a new round.
 - If the quantity sold is the same as demand in the round with the highest price, the application will try to close the auction.
 
@@ -257,7 +257,7 @@ The two test network organizations will eventually agree on a closing price for 
 
 ## Clean up
 
-When your are done using the auction smart contract, you can bring down the network and clean up the environment. In the `application-javascript` directory, run the following command to remove the wallets used to run the applications:
+When you are done using the auction smart contract, you can bring down the network and clean up the environment. In the `application-javascript` directory, run the following command to remove the wallets used to run the applications:
 ```
 rm -rf wallet
 ```
